@@ -1,0 +1,131 @@
+ /* 背景 */
+     body {
+         background: url("https://api.gmit.vip/Api/DmImg?format=image") no-repeat;
+         background-attachment: fixed;
+         background-size: cover;
+     }
+
+     /* 标题居中 不可选中 */
+     h1 {
+         text-align: center;
+         user-select: none;
+     }
+
+     h2 {
+         text-align: center;
+         user-select: none;
+     }
+
+     h3 {
+         text-align: center;
+         user-select: none;
+     }
+
+     h6 {
+         text-align: center;
+         user-select: none;
+     }
+
+     /* 演示代码盒子标出边框 */
+     .演示 {
+         border-left: 1px solid #000;
+         border-right: 1px solid #000;
+         border-top: 1px solid #000;
+         border-bottom: 1px solid #000;
+         margin-left: 30%;
+         margin-right: 30%;
+
+     }
+
+
+     /*链接*/
+     .链接 {
+         color: rgb(0, 102, 255);
+         text-decoration: none;
+     }
+
+
+
+     /*表格*/
+     th {
+         border: 1px solid;
+     }
+
+     td {
+         border: 1px solid;
+     }
+
+     table {
+         border-collapse: collapse;
+     }
+
+     table {
+         margin: auto;
+         text-align: center;
+     }
+
+     /* 分割线不可选中*/
+     .分割线 {
+         user-select: none;
+     }
+
+     /*侧边栏*/
+     .导航标题 {
+         color: red;
+         text-align: center;
+         user-select: none;
+     }
+
+     .sidenav {
+         height: 100%;
+         width: 210px;
+         position: fixed;
+         z-index: 1;
+         top: 0;
+         left: 0;
+         background-color: #111;
+         overflow-x: hidden;
+         padding-top: 15px;
+     }
+
+     .导航栏 {
+         padding: 5px 8px 10px 8px;
+         text-decoration: none;
+         font-size: 20px;
+         color: #818181;
+         display: block;
+         text-align: center;
+         user-select: none;
+     }
+
+     .导航栏1 {
+         padding: 5px 8px 5px 8px;
+         text-decoration: none;
+         font-size: 15px;
+         color: #818181;
+         display: block;
+         text-align: center;
+         user-select: none;
+     }
+
+     .sidenav a:hover {
+         color: #f1f1f1;
+     }
+
+     .main {
+         margin-left: 210px;
+         /* 与sidenav的宽度相同 */
+         font-size: 20px;
+         /* 字体放大，让页面可滚动 */
+         padding: 0px 10px;
+     }
+
+     @media screen and (max-height: 450px) {
+         .sidenav {
+             padding-top: 15px;
+         }
+
+         .sidenav a {
+             font-size: 18px;
+         }
+     }
