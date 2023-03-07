@@ -442,7 +442,7 @@ a:hover {
     width: 600px;
     height: auto;
     background: url(../image/map_background_checkerboard.png);
-    background-size: 95% 100%;
+    background-size: 100% 100%;
     position: relative;
     top: 300px;
     left: 50%;
