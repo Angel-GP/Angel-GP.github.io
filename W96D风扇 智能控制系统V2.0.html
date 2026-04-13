@@ -1,0 +1,2562 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>维简科技 W96D 智能风扇控制中心 v2.0</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link href="https://cdn.jsdelivr.net/npm/font-awesome@4.7.0/css/font-awesome.min.css" rel="stylesheet">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/4.1.1/animate.min.css">
+    <style>
+        :root {
+            --primary: #3B82F6;
+            --secondary: #10B981;
+            --accent: #F59E0B;
+            --dark: #1F2937;
+            --light: #F9FAFB;
+        }
+        
+        body {
+            background: linear-gradient(135deg, #EFF6FF 0%, #F9FAFB 100%);
+            min-height: 100vh;
+            font-family: 'Inter', system-ui, sans-serif;
+            color: var(--dark);
+        }
+        
+        .neumorph-card {
+            background: linear-gradient(145deg, #EFF6FF, #E5E7EB);
+            border-radius: 16px;
+            box-shadow: 8px 8px 16px #d1d9e6, -8px -8px 16px #ffffff;
+            border: 1px solid rgba(255, 255, 255, 0.5);
+            transition: all 0.3s ease;
+        }
+        
+        .neumorph-card:hover {
+            box-shadow: 12px 12px 24px #d1d9e6, -12px -12px 24px #ffffff;
+            transform: translateY(-2px);
+        }
+        
+        .neumorph-btn {
+            background: linear-gradient(145deg, #EFF6FF, #E5E7EB);
+            border-radius: 12px;
+            box-shadow: 5px 5px 10px #d1d9e6, -5px -5px 10px #ffffff;
+            border: 1px solid rgba(255, 255, 255, 0.5);
+            transition: all 0.2s ease;
+        }
+        
+        .neumorph-btn:hover {
+            box-shadow: 3px 3px 6px #d1d9e6, -3px -3px 6px #ffffff;
+            transform: translateY(1px);
+        }
+        
+        .neumorph-btn:active {
+            box-shadow: inset 3px 3px 5px #d1d9e6, inset -3px -3px 5px #ffffff;
+        }
+        
+        .neumorph-input {
+            background: linear-gradient(145deg, #EFF6FF, #E5E7EB);
+            border-radius: 12px;
+            box-shadow: inset 3px 3px 5px #d1d9e6, inset -3px -3px 5px #ffffff;
+            border: 1px solid rgba(255, 255, 255, 0.5);
+            transition: all 0.3s ease;
+        }
+        
+        .neumorph-input:focus {
+            box-shadow: inset 4px 4px 6px #d1d9e6, inset -4px -4px 6px #ffffff;
+            outline: none;
+        }
+        
+        .gradient-text {
+            background: linear-gradient(90deg, var(--primary), var(--secondary));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        
+        .progress-bar {
+            height: 12px;
+            border-radius: 10px;
+            background: linear-gradient(145deg, #EFF6FF, #E5E7EB);
+            box-shadow: inset 3px 3px 5px #d1d9e6, inset -3px -3px 5px #ffffff;
+            overflow: hidden;
+        }
+        
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, var(--primary), var(--secondary));
+            border-radius: 10px;
+            transition: width 0.5s ease;
+        }
+        
+        .slider {
+            -webkit-appearance: none;
+            width: 100%;
+            height: 10px;
+            border-radius: 5px;
+            background: linear-gradient(145deg, #EFF6FF, #E5E7EB);
+            box-shadow: inset 3px 3px 5px #d1d9e6, inset -3px -3px 5px #ffffff;
+            outline: none;
+        }
+        
+        .slider::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 22px;
+            height: 22px;
+            border-radius: 50%;
+            background: var(--primary);
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+            cursor: pointer;
+        }
+        
+        @keyframes pulse-glow {
+            0% { box-shadow: 0 0 5px rgba(59, 130, 246, 0.5); }
+            50% { box-shadow: 0 0 20px rgba(59, 130, 246, 0.8); }
+            100% { box-shadow: 0 0 5px rgba(59, 130, 246, 0.5); }
+        }
+        
+        .pulse-glow {
+            animation: pulse-glow 2s infinite;
+        }
+        
+        @keyframes float {
+            0% { transform: translateY(0px); }
+            50% { transform: translateY(-5px); }
+            100% { transform: translateY(0px); }
+        }
+        
+        .float-animation {
+            animation: float 3s ease-in-out infinite;
+        }
+        
+        .nav-link {
+            position: relative;
+            padding: 0.5rem 1rem;
+            border-radius: 8px;
+            transition: all 0.3s ease;
+        }
+        
+        .nav-link:hover {
+            background: rgba(59, 130, 246, 0.1);
+        }
+        
+        .nav-link.active {
+            background: rgba(59, 130, 246, 0.2);
+            color: var(--primary);
+            font-weight: 600;
+        }
+        
+        .nav-link.active::after {
+            content: '';
+            position: absolute;
+            bottom: -5px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            background: var(--primary);
+        }
+        
+        .checkbox-container {
+            display: flex;
+            align-items: center;
+            margin-bottom: 0.5rem;
+        }
+        
+        .checkbox-container input[type="checkbox"] {
+            margin-right: 0.5rem;
+            width: 18px;
+            height: 18px;
+            accent-color: var(--primary);
+        }
+        
+        .checkbox-container label {
+            cursor: pointer;
+            font-size: 0.9rem;
+        }
+        
+        @media (max-width: 768px) {
+            .container {
+                padding-left: 1rem;
+                padding-right: 1rem;
+            }
+            
+            .neumorph-card {
+                border-radius: 12px;
+            }
+        }
+        
+        .page {
+            display: none;
+        }
+        
+        .page.active {
+            display: block;
+            animation: fadeIn 0.5s ease;
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        .contact-card {
+            transition: all 0.3s ease;
+        }
+        
+        .contact-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+        }
+        
+        .faq-item {
+            border-bottom: 1px solid #e5e7eb;
+            padding: 1.5rem 0;
+        }
+        
+        .faq-item:last-child {
+            border-bottom: none;
+        }
+        
+        .faq-question {
+            font-weight: 600;
+            cursor: pointer;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .faq-answer {
+            margin-top: 1rem;
+            color: #6b7280;
+            line-height: 1.6;
+        }
+        
+        .curve-toggle-panel {
+            background: rgba(255, 255, 255, 0.8);
+            border-radius: 12px;
+            padding: 1rem;
+            margin-bottom: 1rem;
+            backdrop-filter: blur(10px);
+        }
+        
+        .firmware-log {
+            background: #f8fafc;
+            border-radius: 8px;
+            padding: 1rem;
+            margin-top: 1rem;
+            max-height: 200px;
+            overflow-y: auto;
+        }
+        
+        .firmware-log-content {
+            display: none;
+            font-size: 0.85rem;
+            line-height: 1.5;
+        }
+        
+        .version-badge {
+            background: linear-gradient(90deg, var(--primary), var(--secondary));
+            color: white;
+            padding: 0.25rem 0.5rem;
+            border-radius: 20px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            margin-left: 0.5rem;
+        }
+        
+        .developer-badge {
+            background: var(--accent);
+            color: white;
+            padding: 0.25rem 0.5rem;
+            border-radius: 20px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            margin-left: 0.5rem;
+        }
+        
+        /* 保护说明样式 */
+        .protection-section {
+            margin-top: 1.5rem;
+        }
+        
+        .protection-item {
+            margin-bottom: 1rem;
+            padding: 1rem;
+            border-radius: 8px;
+            background-color: #f8f9fa;
+            border-left: 4px solid var(--primary);
+        }
+        
+        .protection-title {
+            font-weight: bold;
+            font-size: 1rem;
+            margin-bottom: 0.5rem;
+            color: var(--dark);
+        }
+        
+        .protection-code {
+            font-family: monospace;
+            background-color: #e9ecef;
+            padding: 0.2rem 0.5rem;
+            border-radius: 3px;
+            margin-right: 0.5rem;
+        }
+        
+        .protection-description {
+            margin-bottom: 0.5rem;
+            font-size: 0.9rem;
+        }
+        
+        .protection-indicators {
+            font-style: italic;
+            color: #6b7280;
+            padding-left: 1rem;
+            font-size: 0.85rem;
+        }
+        
+        /* 加载界面样式 */
+        #loadingOverlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: url('https://www.witrn.com/wp-content/uploads/2025/08/W96D%E5%8C%85%E8%A3%8501.png') no-repeat center center;
+            background-size: cover;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 9999;
+        }
+        
+        .loading-content {
+            text-align: center;
+            position: relative;
+            z-index: 10;
+        }
+        
+        .loading-backdrop {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: white;
+            opacity: 0.9;
+        }
+        
+        .loading-logo {
+            width: 80px;
+            height: 80px;
+            margin: 0 auto 20px;
+            background: url('https://www.witrn.com/wp-content/uploads/2021/06/%E6%AD%A3%E6%96%B9%E5%BD%A2250.png') no-repeat center center;
+            background-size: contain;
+        }
+        
+        .loading-progress {
+            width: 200px;
+            height: 4px;
+            background-color: #e5e7eb;
+            border-radius: 2px;
+            margin: 20px auto;
+            overflow: hidden;
+        }
+        
+        .loading-progress-bar {
+            height: 100%;
+            background: linear-gradient(90deg, var(--primary), var(--secondary));
+            width: 0%;
+            transition: width 0.3s ease;
+        }
+    </style>
+</head>
+<body class="min-h-screen">
+    <!-- 加载界面 -->
+    <div id="loadingOverlay">
+        <div class="loading-backdrop"></div>
+        <div class="loading-content">
+            <div class="loading-logo"></div>
+            <h2 class="text-2xl font-bold gradient-text mb-2">维简科技 W96D 控制中心</h2>
+            <p class="text-gray-600">正在初始化界面，请稍候...</p>
+            <div class="loading-progress">
+                <div id="loadingProgressBar" class="loading-progress-bar"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 顶部导航 -->
+    <nav class="neumorph-card mx-4 mt-4 sticky top-4 z-10">
+        <div class="container mx-auto px-4 py-3 flex flex-col md:flex-row justify-between items-center">
+            <div class="flex items-center mb-4 md:mb-0">
+                <div class="w-10 h-10 mr-3 bg-blue-500 rounded-lg flex items-center justify-center">
+                    <i class="fa fa-fan text-white text-xl"></i>
+                </div>
+                <div class="flex items-center">
+                    <img src="https://www.witrn.com/wp-content/uploads/2021/06/%E6%AD%A3%E6%96%B9%E5%BD%A2250.png" alt="维简科技" class="h-8 mr-2">
+                    <div class="text-center md:text-left">
+                        <h1 class="text-xl md:text-2xl font-bold gradient-text">维简科技 W96D 
+                            <span class="version-badge">v2.0</span>
+                            <span class="developer-badge">TIAN</span>
+                        </h1>
+                        <p class="text-xs text-gray-600">智能风扇控制中心</p>
+                    </div>
+                </div>
+            </div>
+            <div class="flex space-x-1 md:space-x-3">
+                <a href="#control" class="nav-link active" data-page="control-page">控制中心</a>
+                <a href="#faq" class="nav-link" data-page="faq-page">常见问题</a>
+                <a href="#contact" class="nav-link" data-page="contact-page">联系我们</a>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container mx-auto px-4 py-8 max-w-7xl">
+        <!-- 控制中心页面 -->
+        <div id="control-page" class="page active">
+            <!-- 连接状态和控制 -->
+            <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-8">
+                <div id="connectionStatus" class="neumorph-card px-6 py-4 w-full md:w-auto flex items-center">
+                    <div class="float-animation mr-3">
+                        <i class="fa fa-unlink text-2xl text-red-500"></i>
+                    </div>
+                    <span class="font-medium">设备未连接</span>
+                </div>
+                <div class="flex gap-3 w-full md:w-auto">
+                    <button id="connectBtn" class="neumorph-btn px-6 py-3 text-primary font-medium flex items-center justify-center flex-1 md:flex-none">
+                        <i class="fa fa-plug mr-2"></i>连接风扇设备
+                    </button>
+                    <button id="simulateBtn" class="neumorph-btn px-6 py-3 text-accent font-medium flex items-center justify-center flex-1 md:flex-none">
+                        <i class="fa fa-desktop mr-2"></i>启用模拟模式
+                    </button>
+                    <button id="disconnectBtn" disabled class="neumorph-btn px-6 py-3 text-gray-400 font-medium cursor-not-allowed flex items-center justify-center flex-1 md:flex-none">
+                        <i class="fa fa-unplug mr-2"></i>断开连接
+                    </button>
+                </div>
+            </div>
+            
+            <!-- 主要内容区域 -->
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                <!-- 左侧列 -->
+                <div class="lg:col-span-2 space-y-8">
+                    <!-- 电池信息 -->
+                    <div class="neumorph-card p-6">
+                        <div class="flex items-center justify-between mb-6">
+                            <h2 class="text-xl font-bold gradient-text flex items-center">
+                                <i class="fa fa-battery-three-quarters text-primary mr-2"></i>电池信息
+                            </h2>
+                            <div class="flex items-center text-sm text-gray-500">
+                                <i class="fa fa-refresh mr-1 animate-spin"></i>
+                                <span>实时更新</span>
+                            </div>
+                        </div>
+                        
+                        <div class="space-y-6">
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+                                <div class="flex flex-col">
+                                    <label for="batteryCapacityInput" class="text-sm text-gray-600 mb-2 flex items-center">
+                                        <i class="fa fa-database mr-1 text-primary"></i>总电池容量 (mAh):
+                                    </label>
+                                    <input type="number" id="batteryCapacityInput" min="100" max="10000" value="2000" 
+                                        class="neumorph-input px-4 py-3 focus:ring-2 focus:ring-primary/30">
+                                </div>
+                                
+                                <div class="flex flex-col">
+                                    <label for="batteryVoltageInput" class="text-sm text-gray-600 mb-2 flex items-center">
+                                        <i class="fa fa-bolt mr-1 text-primary"></i>电池电压 (V):
+                                    </label>
+                                    <input type="number" id="batteryVoltageInput" min="1.2" max="24" step="0.1" value="3.7" 
+                                        class="neumorph-input px-4 py-3 focus:ring-2 focus:ring-primary/30">
+                                </div>
+                            </div>
+                            
+                            <button id="setBatteryParamsBtn" 
+                                class="neumorph-btn px-4 py-2 text-primary font-medium flex items-center justify-center w-full">
+                                <i class="fa fa-cog mr-2"></i>设置电池参数
+                            </button>
+                            
+                            <!-- 功率设置区域 -->
+                            <div class="neumorph-card p-5">
+                                <div class="flex flex-col">
+                                    <label for="devicePowerInput" class="text-sm text-gray-600 mb-2 flex items-center">
+                                        <i class="fa fa-tachometer mr-1 text-accent"></i>设备功率 (W):
+                                    </label>
+                                    <div class="flex gap-3">
+                                        <input type="number" id="devicePowerInput" min="1" max="100" step="0.5" value="10" 
+                                            class="neumorph-input flex-1 px-4 py-3 focus:ring-2 focus:ring-primary/30">
+                                        <button id="calculateRuntimeBtn" 
+                                            class="neumorph-btn px-4 py-3 text-accent font-medium flex items-center justify-center whitespace-nowrap">
+                                            <i class="fa fa-calculator mr-2"></i>计算理论续航
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- 功率对比区域 -->
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+                                <div class="neumorph-card p-5">
+                                    <div class="text-sm text-gray-600 mb-2 flex items-center">
+                                        <i class="fa fa-tachometer mr-1 text-red-500"></i>设备实时功率
+                                    </div>
+                                    <div id="devicePowerValue" class="text-2xl font-bold text-red-500">-- W</div>
+                                </div>
+                                
+                                <div class="neumorph-card p-5">
+                                    <div class="text-sm text-gray-600 mb-2 flex items-center">
+                                        <i class="fa fa-battery-full mr-1 text-green-500"></i>电池输出功率
+                                    </div>
+                                    <div id="batteryPowerValue" class="text-2xl font-bold text-green-500">-- W</div>
+                                </div>
+                            </div>
+                            
+                            <!-- 电池续航计算结果 -->
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+                                <div class="neumorph-card p-5">
+                                    <div class="font-medium text-green-600 mb-2 flex items-center">
+                                        <i class="fa fa-clock-o mr-2"></i>理论续航时间
+                                    </div>
+                                    <div id="theoreticalRuntime" class="text-sm">
+                                        基于当前参数: <span id="theoreticalRuntimeValue" class="font-medium">--</span>
+                                    </div>
+                                </div>
+                                
+                                <div class="neumorph-card p-5">
+                                    <div class="font-medium text-blue-600 mb-2 flex items-center">
+                                        <i class="fa fa-line-chart mr-2"></i>实时剩余时间
+                                    </div>
+                                    <div id="realtimeRuntime" class="text-sm">
+                                        基于实时功率: <span id="realtimeRuntimeValue" class="font-medium">--</span>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- 电池状态 -->
+                            <div class="neumorph-card p-5">
+                                <div class="flex justify-between items-center mb-4">
+                                    <div class="font-medium flex items-center">
+                                        <i class="fa fa-battery-2 mr-2 text-green-500"></i>
+                                        剩余电量: <span id="batteryPercentage" class="font-bold ml-1">--</span>%
+                                    </div>
+                                    <span id="batteryEstimate" class="text-sm text-gray-600">未计算</span>
+                                </div>
+                                <div class="progress-bar">
+                                    <div id="batteryBar" class="progress-fill" style="width: 0%"></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- 基本控制 -->
+                    <div class="neumorph-card p-6">
+                        <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-6">
+                            <h2 class="text-xl font-bold gradient-text flex items-center">
+                                <i class="fa fa-sliders text-primary mr-2"></i>基本控制
+                            </h2>
+                            <div class="mt-3 md:mt-0">
+                                <button id="toggleControlMode" class="neumorph-btn px-3 py-2 text-xs text-gray-600 flex items-center">
+                                    <i class="fa fa-exchange mr-1"></i>切换调节方式
+                                </button>
+                            </div>
+                        </div>
+                        
+                        <div class="space-y-5">
+                            <!-- 数字输入控制方式 -->
+                            <div id="numberControl" class="control-mode">
+                                <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+                                    <div class="flex flex-col">
+                                        <label for="gearSelect" class="text-sm text-gray-600 mb-2 flex items-center">
+                                            <i class="fa fa-fan mr-1 text-primary"></i>风速档位:
+                                        </label>
+                                        <div class="flex gap-3">
+                                            <select id="gearSelect" disabled 
+                                                class="neumorph-input flex-1 px-4 py-3 focus:ring-2 focus:ring-primary/30 appearance-none">
+                                                <option value="0">关闭</option>
+                                                <option value="1">1档</option>
+                                                <option value="2">2档</option>
+                                                <option value="3">3档</option>
+                                                <option value="4">4档</option>
+                                            </select>
+                                            <button id="setGearBtn" disabled 
+                                                class="neumorph-btn px-4 py-3 text-primary font-medium flex items-center justify-center whitespace-nowrap">
+                                                <i class="fa fa-check mr-1"></i>设置
+                                            </button>
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="flex flex-col">
+                                        <label for="timerInput" class="text-sm text-gray-600 mb-2 flex items-center">
+                                            <i class="fa fa-clock-o mr-1 text-primary"></i>定时关机 (秒):
+                                        </label>
+                                        <div class="flex gap-3">
+                                            <input type="number" id="timerInput" min="0" max="28800" value="0" disabled 
+                                                class="neumorph-input flex-1 px-4 py-3 focus:ring-2 focus:ring-primary/30">
+                                            <button id="setTimerBtn" disabled 
+                                                class="neumorph-btn px-4 py-3 text-primary font-medium flex items-center justify-center whitespace-nowrap">
+                                                <i class="fa fa-check mr-1"></i>设置
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- 滑动条控制方式 -->
+                            <div id="sliderControl" class="control-mode hidden">
+                                <div class="space-y-5">
+                                    <div class="flex flex-col">
+                                        <label class="text-sm text-gray-600 mb-2 flex items-center justify-between">
+                                            <span><i class="fa fa-fan mr-1 text-primary"></i>风速档位:</span>
+                                            <span id="gearValue" class="font-medium">0档</span>
+                                        </label>
+                                        <input type="range" min="0" max="4" value="0" class="slider" id="gearSlider" disabled>
+                                        <div class="flex justify-between text-xs text-gray-500 mt-1">
+                                            <span>关闭</span>
+                                            <span>1档</span>
+                                            <span>2档</span>
+                                            <span>3档</span>
+                                            <span>4档</span>
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="flex flex-col">
+                                        <label class="text-sm text-gray-600 mb-2 flex items-center justify-between">
+                                            <span><i class="fa fa-clock-o mr-1 text-primary"></i>定时关机 (分钟):</span>
+                                            <span id="timerValue" class="font-medium">0分钟</span>
+                                        </label>
+                                        <input type="range" min="0" max="480" value="0" class="slider" id="timerSlider" disabled>
+                                        <div class="flex justify-between text-xs text-gray-500 mt-1">
+                                            <span>0分钟</span>
+                                            <span>120分钟</span>
+                                            <span>240分钟</span>
+                                            <span>360分钟</span>
+                                            <span>480分钟</span>
+                                        </div>
+                                    </div>
+                                    
+                                    <button id="applySliderBtn" disabled 
+                                        class="neumorph-btn px-4 py-3 text-primary font-medium flex items-center justify-center w-full">
+                                        <i class="fa fa-check mr-2"></i>应用设置
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- 自定义风速设置 -->
+                    <div class="neumorph-card p-6">
+                        <h2 class="text-xl font-bold gradient-text mb-6 flex items-center">
+                            <i class="fa fa-cog text-primary mr-2"></i>自定义风速设置
+                        </h2>
+                        
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+                            <div class="flex flex-col">
+                                <label for="set1Input" class="text-sm text-gray-600 mb-2 flex items-center">
+                                    <i class="fa fa-fan mr-1 text-primary"></i>1档风速 (20-100):
+                                </label>
+                                <div class="flex gap-3">
+                                    <input type="number" id="set1Input" min="20" max="100" value="50" disabled 
+                                        class="neumorph-input flex-1 px-4 py-3 focus:ring-2 focus:ring-primary/30">
+                                    <button id="set1Btn" disabled 
+                                        class="neumorph-btn px-4 py-3 text-primary font-medium flex items-center justify-center whitespace-nowrap">
+                                        <i class="fa fa-check mr-1"></i>设置
+                                    </button>
+                                </div>
+                            </div>
+                            
+                            <div class="flex flex-col">
+                                <label for="set2Input" class="text-sm text-gray-600 mb-2 flex items-center">
+                                    <i class="fa fa-fan mr-1 text-primary"></i>2档风速 (20-100):
+                                </label>
+                                <div class="flex gap-3">
+                                    <input type="number" id="set2Input" min="20" max="100" value="60" disabled 
+                                        class="neumorph-input flex-1 px-4 py-3 focus:ring-2 focus:ring-primary/30">
+                                    <button id="set2Btn" disabled 
+                                        class="neumorph-btn px-4 py-3 text-primary font-medium flex items-center justify-center whitespace-nowrap">
+                                        <i class="fa fa-check mr-1"></i>设置
+                                    </button>
+                                </div>
+                            </div>
+                            
+                            <div class="flex flex-col">
+                                <label for="set3Input" class="text-sm text-gray-600 mb-2 flex items-center">
+                                    <i class="fa fa-fan mr-1 text-primary"></i>3档风速 (20-100):
+                                </label>
+                                <div class="flex gap-3">
+                                    <input type="number" id="set3Input" min="20" max="100" value="70" disabled 
+                                        class="neumorph-input flex-1 px-4 py-3 focus:ring-2 focus:ring-primary/30">
+                                    <button id="set3Btn" disabled 
+                                        class="neumorph-btn px-4 py-3 text-primary font-medium flex items-center justify-center whitespace-nowrap">
+                                        <i class="fa fa-check mr-1"></i>设置
+                                    </button>
+                                </div>
+                            </div>
+                            
+                            <div class="flex flex-col">
+                                <label for="set4Input" class="text-sm text-gray-600 mb-2 flex items-center">
+                                    <i class="fa fa-fan mr-1 text-primary"></i>4档风速 (20-100):
+                                </label>
+                                <div class="flex gap-3">
+                                    <input type="number" id="set4Input" min="20" max="100" value="80" disabled 
+                                        class="neumorph-input flex-1 px-4 py-3 focus:ring-2 focus:ring-primary/30">
+                                    <button id="set4Btn" disabled 
+                                        class="neumorph-btn px-4 py-3 text-primary font-medium flex items-center justify-center whitespace-nowrap">
+                                        <i class="fa fa-check mr-1"></i>设置
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="mt-5">
+                            <button id="clearSettingsBtn" disabled 
+                                class="neumorph-btn px-4 py-3 text-red-500 font-medium flex items-center justify-center w-full">
+                                <i class="fa fa-trash mr-2"></i>清除自定义设置
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <!-- 实时监控 -->
+                    <div class="neumorph-card p-6">
+                        <h2 class="text-xl font-bold gradient-text mb-6 flex items-center">
+                            <i class="fa fa-line-chart text-primary mr-2"></i>实时监控
+                        </h2>
+                        
+                        <!-- 曲线显示控制 -->
+                        <div class="curve-toggle-panel mb-6">
+                            <h3 class="text-sm font-medium mb-3">显示曲线:</h3>
+                            <div class="grid grid-cols-2 md:grid-cols-4 gap-2">
+                                <div class="checkbox-container">
+                                    <input type="checkbox" id="showDeviceVoltage" checked>
+                                    <label for="showDeviceVoltage">设备电压</label>
+                                </div>
+                                <div class="checkbox-container">
+                                    <input type="checkbox" id="showDeviceCurrent" checked>
+                                    <label for="showDeviceCurrent">设备电流</label>
+                                </div>
+                                <div class="checkbox-container">
+                                    <input type="checkbox" id="showDevicePower" checked>
+                                    <label for="showDevicePower">设备功率</label>
+                                </div>
+                                <div class="checkbox-container">
+                                    <input type="checkbox" id="showBatteryVoltage" checked>
+                                    <label for="showBatteryVoltage">电池电压</label>
+                                </div>
+                                <div class="checkbox-container">
+                                    <input type="checkbox" id="showBatteryCurrent" checked>
+                                    <label for="showBatteryCurrent">电池电流</label>
+                                </div>
+                                <div class="checkbox-container">
+                                    <input type="checkbox" id="showBatteryPower" checked>
+                                    <label for="showBatteryPower">电池功率</label>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- 监控数据概览 -->
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                            <div class="neumorph-card p-4">
+                                <div class="text-sm text-gray-600 mb-1">设备电压</div>
+                                <div id="voltageValue" class="text-xl font-bold text-blue-600">-- V</div>
+                            </div>
+                            <div class="neumorph-card p-4">
+                                <div class="text-sm text-gray-600 mb-1">设备电流</div>
+                                <div id="currentValue" class="text-xl font-bold text-green-600">-- A</div>
+                            </div>
+                            <div class="neumorph-card p-4">
+                                <div class="text-sm text-gray-600 mb-1">设备功率</div>
+                                <div id="powerValue" class="text-xl font-bold text-purple-600">-- W</div>
+                            </div>
+                        </div>
+                        
+                        <!-- 曲线录制控制 -->
+                        <div class="flex flex-wrap gap-3 items-center mb-6">
+                            <button id="startRecordBtn" disabled 
+                                class="neumorph-btn px-4 py-2 text-green-500 font-medium flex items-center">
+                                <i class="fa fa-circle-o mr-2"></i>开始录制
+                            </button>
+                            <button id="stopRecordBtn" disabled 
+                                class="neumorph-btn px-4 py-2 text-red-500 font-medium flex items-center">
+                                <i class="fa fa-stop mr-2"></i>停止录制
+                            </button>
+                            <span id="recordingStatus" class="px-3 py-1 bg-blue-100 text-blue-600 rounded-full text-xs font-medium">
+                                未录制
+                            </span>
+                            <span id="recordDuration" class="text-sm text-gray-500 ml-auto">
+                                时长: 00:00
+                            </span>
+                        </div>
+                        
+                        <div id="statusInfo" class="neumorph-input p-4 text-sm mb-6">
+                            请连接设备以开始监控
+                        </div>
+                        
+                        <div class="relative h-[300px] w-full mb-6">
+                            <canvas id="monitorChart"></canvas>
+                        </div>
+                        
+                        <!-- 曲线导入导出控制 -->
+                        <div class="flex flex-wrap gap-3 justify-between items-center">
+                            <div class="flex flex-wrap gap-3">
+                                <button id="saveCurveBtn" disabled 
+                                    class="neumorph-btn px-4 py-2 text-primary font-medium flex items-center">
+                                    <i class="fa fa-download mr-2"></i>保存曲线
+                                </button>
+                                <label for="importCurveInput" 
+                                    class="neumorph-btn px-4 py-2 text-gray-700 font-medium cursor-pointer flex items-center">
+                                    <i class="fa fa-upload mr-2"></i>导入曲线
+                                </label>
+                                <input type="file" id="importCurveInput" accept=".json" class="hidden" disabled>
+                            </div>
+                            
+                            <div class="flex items-center gap-4">
+                                <label class="inline-flex items-center cursor-pointer">
+                                    <input type="radio" id="viewLive" name="viewMode" checked disabled 
+                                        class="form-radio text-primary focus:ring-primary h-4 w-4">
+                                    <span class="ml-2 text-sm">实时视图</span>
+                                </label>
+                                <label class="inline-flex items-center cursor-pointer">
+                                    <input type="radio" id="viewRecorded" name="viewMode" disabled 
+                                        class="form-radio text-primary focus:ring-primary h-4 w-4">
+                                    <span class="ml-2 text-sm">录制视图</span>
+                                </label>
+                            </div>
+                        </div>
+                        
+                        <div id="curveStatus" class="mt-3 text-xs text-gray-500"></div>
+                    </div>
+                    
+                    <!-- 智能安全保护说明 -->
+                    <div class="neumorph-card p-6">
+                        <h2 class="text-xl font-bold gradient-text mb-6 flex items-center">
+                            <i class="fa fa-shield text-primary mr-2"></i>智能安全保护
+                        </h2>
+                        
+                        <div class="protection-section">
+                            <div class="protection-item">
+                                <div class="protection-title">
+                                    <span class="protection-code">FOLRP</span> 异物堵转保护
+                                </div>
+                                <div class="protection-description">
+                                    当电机档位较高时，风扇扇叶被异物堵转，会触发W96D堵转保护。
+                                </div>
+                                <div class="protection-indicators">
+                                    <strong>指示灯状态：</strong>4个档位指示灯会左右流水闪烁
+                                </div>
+                            </div>
+                            
+                            <div class="protection-item">
+                                <div class="protection-title">
+                                    <span class="protection-code">OVP</span> 输入过压保护
+                                </div>
+                                <div class="protection-description">
+                                    当输入电压过高（高于5.5V）时，会触发W96D过压保护。
+                                </div>
+                                <div class="protection-indicators">
+                                    <strong>指示灯状态：</strong>4个档位指示灯会同步闪烁
+                                </div>
+                            </div>
+                            
+                            <div class="protection-item">
+                                <div class="protection-title">
+                                    <span class="protection-code">BOVP</span> 电池过压保护
+                                </div>
+                                <div class="protection-description">
+                                    当电池仓供电电压过高时，会触发W96D过压保护。
+                                </div>
+                                <div class="protection-indicators">
+                                    <strong>指示灯状态：</strong>4个档位指示灯会12/34交叉闪烁
+                                </div>
+                            </div>
+                            
+                            <div class="protection-item">
+                                <div class="protection-title">
+                                    <span class="protection-code">UVP</span> 电池欠压保护
+                                </div>
+                                <div class="protection-description">
+                                    当电池电压过低（低于3.0V）时，会触发W96D欠压保护。
+                                </div>
+                                <div class="protection-indicators">
+                                    <strong>指示灯状态：</strong>4个档位指示灯会13/24交叉闪烁
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- 右侧列 -->
+                <div class="space-y-8">
+                    <!-- 自然风模式 -->
+                    <div class="neumorph-card p-6">
+                        <h2 class="text-xl font-bold gradient-text mb-6 flex items-center">
+                            <i class="fa fa-leaf text-primary mr-2"></i>自然风模式
+                        </h2>
+                        
+                        <div class="space-y-5">
+                            <div class="flex flex-col">
+                                <label for="windSumInput" class="text-sm text-gray-600 mb-2 flex items-center">
+                                    <i class="fa fa-list-ol mr-1 text-primary"></i>总点数 (1-200):
+                                </label>
+                                <div class="flex gap-3">
+                                    <input type="number" id="windSumInput" min="1" max="200" value="50" disabled 
+                                        class="neumorph-input flex-1 px-4 py-3 focus:ring-2 focus:ring-primary/30">
+                                    <button id="setWindSumBtn" disabled 
+                                        class="neumorph-btn px-4 py-3 text-primary font-medium flex items-center justify-center whitespace-nowrap">
+                                        <i class="fa fa-check mr-1"></i>设置
+                                    </button>
+                                </div>
+                            </div>
+                            
+                            <div class="flex flex-col">
+                                <label for="windTimeInput" class="text-sm text-gray-600 mb-2 flex items-center">
+                                    <i class="fa fa-clock-o mr-1 text-primary"></i>时间跨度 (秒):
+                                </label>
+                                <div class="flex gap-3">
+                                    <input type="number" id="windTimeInput" min="1" max="3600" value="600" disabled 
+                                        class="neumorph-input flex-1 px-4 py-3 focus:ring-2 focus:ring-primary/30">
+                                    <button id="setWindTimeBtn" disabled 
+                                        class="neumorph-btn px-4 py-3 text-primary font-medium flex items-center justify-center whitespace-nowrap">
+                                        <i class="fa fa-check mr-1"></i>设置
+                                    </button>
+                                </div>
+                            </div>
+                            
+                            <div class="flex flex-col">
+                                <label for="windIndexInput" class="text-sm text-gray-600 mb-2 flex items-center">
+                                    <i class="fa fa-sliders mr-1 text-primary"></i>点序号与风速:
+                                </label>
+                                <div class="flex gap-3">
+                                    <input type="number" id="windIndexInput" min="0" max="199" value="0" disabled 
+                                        class="neumorph-input flex-1 px-4 py-3 focus:ring-2 focus:ring-primary/30">
+                                    <input type="number" id="windSpeedInput" min="0" max="100" value="50" disabled 
+                                        class="neumorph-input flex-1 px-4 py-3 focus:ring-2 focus:ring-primary/30">
+                                    <button id="setWindIndexBtn" disabled 
+                                        class="neumorph-btn px-4 py-3 text-primary font-medium flex items-center justify-center whitespace-nowrap">
+                                        <i class="fa fa-check mr-1"></i>设置点
+                                    </button>
+                                </div>
+                            </div>
+                            
+                            <div class="flex gap-3 mt-2">
+                                <button id="saveWindBtn" disabled 
+                                    class="neumorph-btn flex-1 px-4 py-3 text-green-500 font-medium flex items-center justify-center">
+                                    <i class="fa fa-save mr-2"></i>保存设置
+                                </button>
+                                <button id="clearWindBtn" disabled 
+                                    class="neumorph-btn flex-1 px-4 py-3 text-red-500 font-medium flex items-center justify-center">
+                                    <i class="fa fa-trash mr-2"></i>清除设置
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- 序列号管理 -->
+                    <div class="neumorph-card p-6">
+                        <h2 class="text-xl font-bold gradient-text mb-6 flex items-center">
+                            <i class="fa fa-barcode text-primary mr-2"></i>序列号管理
+                        </h2>
+                        
+                        <div class="space-y-5">
+                            <div class="flex flex-col">
+                                <label for="serialInput" class="text-sm text-gray-600 mb-2 flex items-center">
+                                    <i class="fa fa-key mr-1 text-primary"></i>设备序列号:
+                                </label>
+                                <div class="flex gap-3">
+                                    <input type="text" id="serialInput" placeholder="读取或输入序列号" disabled 
+                                        class="neumorph-input flex-1 px-4 py-3 focus:ring-2 focus:ring-primary/30">
+                                    <button id="readSerialBtn" disabled 
+                                        class="neumorph-btn px-4 py-3 text-primary font-medium flex items-center justify-center whitespace-nowrap">
+                                        <i class="fa fa-download mr-1"></i>读取
+                                    </button>
+                                </div>
+                            </div>
+                            
+                            <button id="writeSerialBtn" disabled 
+                                class="neumorph-btn px-4 py-3 text-primary font-medium flex items-center justify-center w-full">
+                                <i class="fa fa-upload mr-2"></i>写入序列号
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <!-- 手动指令发送 -->
+                    <div class="neumorph-card p-6">
+                        <h2 class="text-xl font-bold gradient-text mb-6 flex items-center">
+                            <i class="fa fa-terminal text-primary mr-2"></i>手动指令发送
+                        </h2>
+                        
+                        <div class="space-y-5">
+                            <div class="flex flex-col">
+                                <label for="customCommandInput" class="text-sm text-gray-600 mb-2 flex items-center">
+                                    <i class="fa fa-code mr-1 text-primary"></i>指令:
+                                </label>
+                                <div class="flex gap-3">
+                                    <input type="text" id="customCommandInput" placeholder="例如: GEAR=1" disabled 
+                                        class="neumorph-input flex-1 px-4 py-3 focus:ring-2 focus:ring-primary/30">
+                                    <button id="sendCustomCommandBtn" disabled 
+                                        class="neumorph-btn px-4 py-3 text-primary font-medium flex items-center justify-center whitespace-nowrap">
+                                        <i class="fa fa-paper-plane mr-1"></i>发送
+                                    </button>
+                                </div>
+                            </div>
+                            
+                            <div>
+                                <div class="text-sm font-medium mb-2 flex items-center">
+                                    <i class="fa fa-history mr-2 text-primary"></i>指令历史记录
+                                </div>
+                                <div id="commandHistory" class="neumorph-input p-3 h-32 overflow-y-auto text-xs font-mono">
+                                    <!-- 指令历史将在这里显示 -->
+                                </div>
+                            </div>
+                            
+                            <div class="text-center">
+                                <button id="clearHistoryBtn" class="neumorph-btn px-4 py-2 text-gray-600 text-sm">
+                                    <i class="fa fa-trash-o mr-1"></i>清除历史
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- 红外遥控 -->
+                    <div class="neumorph-card p-6">
+                        <h2 class="text-xl font-bold gradient-text mb-6 flex items-center">
+                            <i class="fa fa-wifi text-primary mr-2"></i>红外遥控
+                        </h2>
+                        
+                        <div class="space-y-5">
+                            <div class="bg-blue-50 rounded-xl p-4">
+                                <div class="flex items-center">
+                                    <i class="fa fa-info-circle text-blue-500 mr-2"></i>
+                                    <p class="text-sm text-gray-700">W96D小风扇内置红外接收器，支持接收遥控器、智能手机、智能红外网关等遥控信号</p>
+                                </div>
+                            </div>
+                            
+                            <div class="grid grid-cols-2 gap-3">
+                                <button id="infraredModalBtn" class="neumorph-btn py-3 text-primary font-medium flex items-center justify-center">
+                                    <i class="fa fa-gamepad mr-2"></i>红外遥控功能
+                                </button>
+                                <button id="sendIRCommandBtn" disabled class="neumorph-btn py-3 text-gray-400 font-medium cursor-not-allowed flex items-center justify-center">
+                                    <i class="fa fa-send mr-2"></i>发送红外信号
+                                </button>
+                            </div>
+                            
+                            <div class="grid grid-cols-2 gap-3">
+                                <button class="neumorph-btn p-3 flex items-center justify-center" onclick="sendIRCommand('volume_up')">
+                                    <i class="fa fa-plus-circle text-green-500 mr-2"></i>
+                                    <span>加档</span>
+                                </button>
+                                <button class="neumorph-btn p-3 flex items-center justify-center" onclick="sendIRCommand('volume_down')">
+                                    <i class="fa fa-minus-circle text-red-500 mr-2"></i>
+                                    <span>减档</span>
+                                </button>
+                                <button class="neumorph-btn p-3 flex items-center justify-center" onclick="sendIRCommand('power')">
+                                    <i class="fa fa-power-off text-blue-500 mr-2"></i>
+                                    <span>开关</span>
+                                </button>
+                                <button class="neumorph-btn p-3 flex items-center justify-center" onclick="sendIRCommand('home')">
+                                    <i class="fa fa-home text-yellow-500 mr-2"></i>
+                                    <span>自然风</span>
+                                </button>
+                            </div>
+                            
+                            <div class="neumorph-input p-4 text-sm">
+                                <div class="font-medium mb-2">使用说明:</div>
+                                <ul class="list-disc pl-5 space-y-1">
+                                    <li>小风扇无任何操作10分钟后进入休眠状态</li>
+                                    <li>休眠后无法接收遥控器红外信号</li>
+                                    <li>USB-C口持续供电时风扇不休眠</li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- 使用说明链接 -->
+                    <div class="neumorph-card p-6">
+                        <h2 class="text-xl font-bold gradient-text mb-6 flex items-center">
+                            <i class="fa fa-book text-primary mr-2"></i>使用说明
+                        </h2>
+                        
+                        <div class="space-y-4">
+                            <a href="https://www.witrn.com/?p=2709#link02" target="_blank" class="neumorph-btn px-4 py-3 text-blue-600 font-medium flex items-center justify-center">
+                                <i class="fa fa-external-link mr-2"></i>WITRN维简W96D智能小风扇使用说明
+                            </a>
+                            
+                            <div class="text-sm text-gray-600">
+                                <p>点击上方链接查看详细使用说明，包括：</p>
+                                <ul class="list-disc pl-5 mt-2 space-y-1">
+                                    <li>设备连接指南</li>
+                                    <li>功能使用说明</li>
+                                    <li>故障排除方法</li>
+                                    <li>固件升级步骤</li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- 日志区域 -->
+                    <div class="neumorph-card p-6">
+                        <h2 class="text-xl font-bold gradient-text mb-6 flex items-center">
+                            <i class="fa fa-file-text-o text-primary mr-2"></i>系统日志
+                        </h2>
+                        
+                        <div class="space-y-4">
+                            <div id="logContent" class="neumorph-input p-4 h-48 overflow-y-auto text-xs font-mono">
+                                <div>[系统] 控制中心已启动 v2.0</div>
+                                <div>[系统] 开发者: TIAN</div>
+                                <div>[系统] 正在初始化界面组件...</div>
+                                <div>[系统] 等待设备连接</div>
+                            </div>
+                            
+                            <div class="flex justify-between items-center">
+                                <div class="text-sm text-gray-600">
+                                    日志级别: <span class="font-medium">信息</span>
+                                </div>
+                                <div class="flex gap-2">
+                                    <button id="clearLogBtn" class="neumorph-btn px-3 py-1 text-xs text-gray-600">
+                                        <i class="fa fa-trash-o mr-1"></i>清除
+                                    </button>
+                                    <button id="exportLogBtn" class="neumorph-btn px-3 py-1 text-xs text-gray-600">
+                                        <i class="fa fa-download mr-1"></i>导出
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- 常见问题页面 -->
+        <div id="faq-page" class="page">
+            <!-- 固件管理 -->
+            <div class="neumorph-card p-6 mb-8">
+                <h2 class="text-2xl font-bold gradient-text mb-6 flex items-center">
+                    <i class="fa fa-microchip text-primary mr-2"></i>固件管理
+                </h2>
+                
+                <div class="space-y-6">
+                    <div class="bg-blue-50 rounded-xl p-5">
+                        <h3 class="font-medium text-blue-700 mb-3 flex items-center">
+                            <i class="fa fa-download mr-2"></i>WITRN OTA 升级工具
+                        </h3>
+                        <p class="text-sm text-gray-700 mb-4">下载官方固件升级工具，轻松更新您的设备固件</p>
+                        <a href="https://www.witrn.com/witrn/pc/WITRN_UP_V30.zip" class="neumorph-btn px-4 py-2 text-blue-600 text-sm inline-flex items-center">
+                            <i class="fa fa-download mr-2"></i>下载升级工具
+                        </a>
+                    </div>
+                    
+                    <div class="firmware-log">
+                        <h3 class="font-medium text-gray-700 mb-3 flex items-center cursor-pointer" onclick="toggleFirmwareLog()">
+                            <i class="fa fa-file-text-o mr-2"></i>W96D固件更新log
+                            <i class="fa fa-chevron-down ml-2 text-xs"></i>
+                        </h3>
+                        <div class="firmware-log-content">
+                            <h4 class="font-medium mt-4">W96D V1.5 (2025.07.28)</h4>
+                            <ul class="list-disc pl-5 text-sm text-gray-700 mt-2">
+                                <li>出厂固件</li>
+                            </ul>
+                            
+                            <h4 class="font-medium mt-4">W96D V1.6 (2025.08.16)</h4>
+                            <ul class="list-disc pl-5 text-sm text-gray-700 mt-2">
+                                <li>增加虚拟电量快速显示功能</li>
+                                <li>在W96D开机或工作状态，双击减号键，即可显示电池剩余电量</li>
+                                <li>4个档位指示灯分别代表25%,50%,75%,100%</li>
+                                <li>增加快速关机功能</li>
+                                <li>双击减号键关机的同时，也是电量显示</li>
+                                <li>注意：虚拟电量采用电池空载电压为参数，并不十分精准，仅供参考</li>
+                            </ul>
+                            <a href="https://www.witrn.com/witrn/fan/W96D_V1.6.zip" class="text-blue-500 text-sm mt-2 inline-block">
+                                <i class="fa fa-download mr-1"></i>下载 V1.6 固件包
+                            </a>
+                            
+                            <h4 class="font-medium mt-4">W96D V1.7 (2025.08.21)</h4>
+                            <ul class="list-disc pl-5 text-sm text-gray-700 mt-2">
+                                <li>根据4800mAh电池完整放电曲线修正电量显示</li>
+                                <li>待机状态下，双击减号键，也能看电量</li>
+                            </ul>
+                            <a href="https://www.witrn.com/witrn/fan/W96D_V1.7.zip" class="text-blue-500 text-sm mt-2 inline-block">
+                                <i class="fa fa-download mr-1"></i>下载 V1.7 固件包
+                            </a>
+                            
+                            <h4 class="font-medium mt-4">W96D V5.0</h4>
+                            <a href="https://www.witrn.com/witrn/fan/W96D_V5.0.zip" class="text-blue-500 text-sm mt-2 inline-block">
+                                <i class="fa fa-download mr-1"></i>下载 V5.0 固件包
+                            </a>
+                            <p class="text-sm text-red-500 mt-2">固件刷写可添加任何文件旁边有红字无法使用</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="neumorph-card p-6 mb-8">
+                <h2 class="text-2xl font-bold gradient-text mb-6 flex items-center">
+                    <i class="fa fa-question-circle text-primary mr-2"></i>常见问题
+                </h2>
+                
+                <div class="space-y-4">
+                    <div class="faq-item">
+                        <div class="faq-question" onclick="toggleFaq(this)">
+                            <span>如何连接W96D智能风扇？</span>
+                            <i class="fa fa-chevron-down"></i>
+                        </div>
+                        <div class="faq-answer hidden">
+                            <p>1. 确保风扇已开机并处于可连接状态</p>
+                            <p>2. 点击控制中心的"连接风扇设备"按钮</p>
+                            <p>3. 在浏览器弹出的设备列表中选择您的风扇设备</p>
+                            <p>4. 等待连接成功提示</p>
+                        </div>
+                    </div>
+                    
+                    <div class="faq-item">
+                        <div class="faq-question" onclick="toggleFaq(this)">
+                            <span>为什么无法连接到设备？</span>
+                            <i class="fa fa-chevron-down"></i>
+                        </div>
+                        <div class="faq-answer hidden">
+                            <p>可能的原因：</p>
+                            <p>1. 设备未开机或电量不足</p>
+                            <p>2. 设备已被其他应用程序连接</p>
+                            <p>3. 浏览器不支持WebHID功能（请使用Chrome 89+版本）</p>
+                            <p>4. 设备驱动程序未正确安装</p>
+                        </div>
+                    </div>
+                    
+                    <div class="faq-item">
+                        <div class="faq-question" onclick="toggleFaq(this)">
+                            <span>如何设置自然风模式？</span>
+                            <i class="fa fa-chevron-down"></i>
+                        </div>
+                        <div class="faq-answer hidden">
+                            <p>1. 在控制中心选择"自然风模式"面板</p>
+                            <p>2. 设置总点数（1-200之间的数值）</p>
+                            <p>3. 设置时间跨度（以秒为单位）</p>
+                            <p>4. 为每个点设置风速值</p>
+                            <p>5. 点击"保存设置"按钮应用配置</p>
+                        </div>
+                    </div>
+                    
+                    <div class="faq-item">
+                        <div class="faq-question" onclick="toggleFaq(this)">
+                            <span>红外遥控功能如何使用？</span>
+                            <i class="fa fa-chevron-down"></i>
+                        </div>
+                        <div class="faq-answer hidden">
+                            <p>W96D小风扇支持红外遥控功能：</p>
+                            <p>1. 使用控制中心提供的红外遥控按钮</p>
+                            <p>2. 或者使用兼容的红外遥控器（小米电视遥控器等）</p>
+                            <p>3. 或者使用手机APP万能遥控器（添加小米电视红外款）</p>
+                            <p>4. 或者使用米家红外智能网关</p>
+                        </div>
+                    </div>
+                    
+                    <div class="faq-item">
+                        <div class="faq-question" onclick="toggleFaq(this)">
+                            <span>如何计算电池续航时间？</span>
+                            <i class="fa fa-chevron-down"></i>
+                        </div>
+                        <div class="faq-answer hidden">
+                            <p>1. 在电池信息面板设置正确的电池容量和电压</p>
+                            <p>2. 设置设备功率或使用实时功率数据</p>
+                            <p>3. 系统会自动计算理论续航时间和实时剩余时间</p>
+                            <p>4. 计算公式：续航时间(小时) = (电池容量(mAh) × 电池电压(V)) / (设备功率(W) × 1000)</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="neumorph-card p-6">
+                <h2 class="text-xl font-bold gradient-text mb-6 flex items-center">
+                    <i class="fa fa-book text-primary mr-2"></i>使用教程
+                </h2>
+                
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div class="bg-blue-50 rounded-xl p-5">
+                        <h3 class="font-medium text-blue-700 mb-3 flex items-center">
+                            <i class="fa fa-video-camera mr-2"></i>视频教程
+                        </h3>
+                        <p class="text-sm text-gray-700 mb-4">观看我们的视频教程，快速上手W96D智能风扇控制中心</p>
+                        <a href="https://www.bilibili.com/video/BV1LieezxEm9/?spm_id_from=333.1387.list.card_archive.click" class="neumorph-btn px-4 py-2 text-blue-600 text-sm inline-flex items-center">
+                            <i class="fa fa-play-circle mr-2"></i>观看教程
+                        </a>
+                    </div>
+                    
+                    <div class="bg-green-50 rounded-xl p-5">
+                        <h3 class="font-medium text-green-700 mb-3 flex items-center">
+                            <i class="fa fa-file-pdf-o mr-2"></i>用户手册
+                        </h3>
+                        <p class="text-sm text-gray-700 mb-4">下载详细用户手册，了解所有功能和使用方法</p>
+                        <a href="https://www.witrn.com/?p=2709" class="neumorph-btn px-4 py-2 text-green-600 text-sm inline-flex items-center">
+                            <i class="fa fa-download mr-2"></i>下载手册
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- 联系我们页面 -->
+        <div id="contact-page" class="page">
+            <div class="neumorph-card p-6 mb-8">
+                <h2 class="text-2xl font-bold gradient-text mb-6 flex items-center">
+                    <i class="fa fa-envelope text-primary mr-2"></i>联系我们
+                </h2>
+                
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+                    <div>
+                        <h3 class="text-lg font-semibold mb-4">联系方式</h3>
+                        
+                        <div class="space-y-4">
+                            <div class="flex items-start">
+                                <div class="bg-blue-100 text-blue-700 rounded-full w-10 h-10 flex items-center justify-center flex-shrink-0 mr-4">
+                                    <i class="fa fa-phone"></i>
+                                </div>
+                                <div>
+                                    <h4 class="font-medium">客服热线</h4>
+                                    <a href="https://witrn.taobao.com/" class="text-gray-600 hover:text-blue-600">https://witrn.taobao.com/</a>
+                                    <p class="text-sm text-gray-500">工作日 9:00-18:00</p>
+                                </div>
+                            </div>
+                            
+                            <div class="flex items-start">
+                                <div class="bg-green-100 text-green-700 rounded-full w-10 h-10 flex items-center justify-center flex-shrink-0 mr-4">
+                                    <i class="fa fa-envelope-o"></i>
+                                </div>
+                                <div>
+                                    <h4 class="font-medium">电子邮件</h4>
+                                    <p class="text-gray-600">（暂无提供）</p>
+                                    <p class="text-sm text-gray-500">24小时内回复</p>
+                                </div>
+                            </div>
+                            
+                            <div class="flex items-start">
+                                <div class="bg-purple-100 text-purple-700 rounded-full w-10 h-10 flex items-center justify-center flex-shrink-0 mr-4">
+                                    <i class="fa fa-map-marker"></i>
+                                </div>
+                                <div>
+                                    <h4 class="font-medium">公司地址</h4>
+                                    <p class="text-gray-600">广州市黄埔区彩频路9号802-4房(仅限办公)</p>
+                                    <p class="text-sm text-gray-500">邮编：510000</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div>
+                        <h3 class="text-lg font-semibold mb-4">发送消息</h3>
+                        
+                        <form class="space-y-4" id="contactForm">
+                            <div class="flex flex-col">
+                                <label for="name" class="text-sm text-gray-600 mb-2">您的姓名</label>
+                                <input type="text" id="name" class="neumorph-input px-4 py-3 focus:ring-2 focus:ring-primary/30" placeholder="请输入姓名" required>
+                            </div>
+                            
+                            <div class="flex flex-col">
+                                <label for="email" class="text-sm text-gray-600 mb-2">电子邮箱</label>
+                                <input type="email" id="email" class="neumorph-input px-4 py-3 focus:ring-2 focus:ring-primary/30" placeholder="请输入邮箱" required>
+                            </div>
+                            
+                            <div class="flex flex-col">
+                                <label for="message" class="text-sm text-gray-600 mb-2">您的消息</label>
+                                <textarea id="message" rows="4" class="neumorph-input px-4 py-3 focus:ring-2 focus:ring-primary/30" placeholder="请输入您的问题或建议" required></textarea>
+                            </div>
+                            
+                            <button type="submit" class="neumorph-btn px-6 py-3 text-primary font-medium w-full">
+                                <i class="fa fa-paper-plane mr-2"></i>发送消息
+                            </button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div class="neumorph-card p-5 text-center contact-card">
+                    <div class="bg-blue-100 text-blue-700 rounded-full w-16 h-16 flex items-center justify-center mx-auto mb-4">
+                        <i class="fa fa-weixin text-2xl"></i>
+                    </div>
+                    <h3 class="font-medium mb-2">微信公众号</h3>
+                    <p class="text-sm text-gray-600">扫描二维码关注我们</p>
+                    <div class="mt-4 bg-white p-2 inline-block rounded">
+                        <div class="w-24 h-24 bg-gray-200 flex items-center justify-center">
+                            <span class="text-xs">二维码区域</span>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="neumorph-card p-5 text-center contact-card">
+                    <div class="bg-red-100 text-red-700 rounded-full w-16 h-16 flex items-center justify-center mx-auto mb-4">
+                        <i class="fa fa-weibo text-2xl"></i>
+                    </div>
+                    <h3 class="font-medium mb-2">微博</h3>
+                    <p class="text-sm text-gray-600">@维简科技官方微博</p>
+                    <a href="https://weibo.com/u/6568301240" class="neumorph-btn px-4 py-2 text-red-600 text-sm mt-4 inline-block">
+                        <i class="fa fa-plus-circle mr-2"></i>关注我们
+                    </a>
+                </div>
+                
+                <div class="neumorph-card p-5 text-center contact-card">
+                    <div class="bg-gray-100 text-gray-700 rounded-full w-16 h-16 flex items-center justify-center mx-auto mb-4">
+                        <i class="fa fa-globe text-2xl"></i>
+                    </div>
+                    <h3 class="font-medium mb-2">官方网站</h3>
+                    <p class="text-sm text-gray-600">www.witrn.com</p>
+                    <a href="https://www.witrn.com" class="neumorph-btn px-4 py-2 text-gray-600 text-sm mt-4 inline-block">
+                        <i class="fa fa-external-link mr-2"></i>访问网站
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- 红外遥控模态框 -->
+    <div id="infraredModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 hidden">
+        <div class="neumorph-card mx-4 p-6 max-w-2xl max-h-[90vh] overflow-y-auto">
+            <div class="flex justify-between items-center mb-6">
+                <h2 class="text-2xl font-bold gradient-text flex items-center">
+                    <i class="fa fa-wifi text-primary mr-2"></i>红外遥控功能
+                </h2>
+                <button id="closeInfraredModal" class="neumorph-btn w-10 h-10 flex items-center justify-center">
+                    <i class="fa fa-times"></i>
+                </button>
+            </div>
+            
+            <div class="space-y-6">
+                <div class="neumorph-card p-5">
+                    <h3 class="text-lg font-semibold text-primary mb-3 flex items-center">
+                        <i class="fa fa-info-circle mr-2"></i>W96D AIoT智能物联说明
+                    </h3>
+                    <p class="text-gray-700 mb-4">
+                        W96D小风扇内置红外接收器，支持接收遥控器、智能手机、智能红外网关等遥控信号。
+                    </p>
+                    
+                    <div class="bg-blue-50 rounded-xl p-4 mb-4">
+                        <h4 class="font-medium text-dark mb-2 flex items-center">
+                            <i class="fa fa-bolt text-accent mr-2"></i>信号通讯频率
+                        </h4>
+                        <p class="text-sm text-gray-700">38kHz</p>
+                    </div>
+                    
+                    <div class="bg-green-50 rounded-xl p-4">
+                        <h4 class="font-medium text-dark mb-2 flex items-center">
+                            <i class="fa fa-plug text-green-500 mr-2"></i>兼容设备
+                        </h4>
+                        <ul class="text-sm text-gray-700 list-disc pl-5 space-y-1">
+                            <li>小米电视红外遥控器</li>
+                            <li>手机APP万能遥控器（添加小米电视红外款）</li>
+                            <li>米家红外智能网关</li>
+                            <li>第三方红外智能网关</li>
+                        </ul>
+                    </div>
+                </div>
+                
+                <div class="neumorph-card p-5">
+                    <h3 class="text-lg font-semibold text-primary mb-3 flex items-center">
+                        <i class="fa fa-gamepad mr-2"></i>遥控器按键功能
+                    </h3>
+                    
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <button class="neumorph-btn p-4 hover:bg-blue-50 transition-colors" onclick="sendIRCommand('volume_up')">
+                            <div class="font-medium text-blue-700 flex items-center">
+                                <i class="fa fa-volume-up mr-2"></i>音量+
+                            </div>
+                            <p class="text-sm text-gray-700 mt-1">加档</p>
+                        </button>
+                        
+                        <button class="neumorph-btn p-4 hover:bg-blue-50 transition-colors" onclick="sendIRCommand('volume_down')">
+                            <div class="font-medium text-blue-700 flex items-center">
+                                <i class="fa fa-volume-down mr-2"></i>音量-
+                            </div>
+                            <p class="text-sm text-gray-700 mt-1">减档</p>
+                        </button>
+                        
+                        <button class="neumorph-btn p-4 hover:bg-green-50 transition-colors" onclick="sendIRCommand('home')">
+                            <div class="font-medium text-green-700 flex items-center">
+                                <i class="fa fa-home mr-2"></i>HOME键
+                            </div>
+                            <p class="text-sm text-gray-700 mt-1">自然风开关（小房屋图标那个键）</p>
+                        </button>
+                        
+                        <button class="neumorph-btn p-4 hover:bg-green-50 transition-colors" onclick="sendIRCommand('menu')">
+                            <div class="font-medium text-green-700 flex items-center">
+                                <i class="fa fa-bars mr-2"></i>菜单键
+                            </div>
+                            <p class="text-sm text-gray-700 mt-1">定时（三条横线那个键）</p>
+                        </button>
+                        
+                        <button class="neumorph-btn p-4 hover:bg-red-50 transition-colors col-span-2" onclick="sendIRCommand('power')">
+                            <div class="font-medium text-red-700 flex items-center justify-center">
+                                <i class="fa fa-power-off mr-2"></i>开关键
+                            </div>
+                            <p class="text-sm text-gray-700 mt-1 text-center">开关机</p>
+                        </button>
+                    </div>
+                </div>
+                
+                <div class="neumorph-card p-5">
+                    <h3 class="text-lg font-semibold text-primary mb-3 flex items-center">
+                        <i class="fa fa-lightbulb-o mr-2"></i>使用注意事项
+                    </h3>
+                    
+                    <div class="space-y-3">
+                        <div class="flex items-start">
+                            <div class="bg-yellow-100 text-yellow-700 rounded-full w-6 h-6 flex items-center justify-center flex-shrink-0 mr-3">
+                                <i class="fa fa-exclamation text-xs"></i>
+                            </div>
+                            <p class="text-sm text-gray-700">小风扇无任何操作10分钟后进入休眠状态</p>
+                        </div>
+                        
+                        <div class="flex items-start">
+                            <div class="bg-yellow-100 text-yellow-700 rounded-full w-6 h-6 flex items-center justify-center flex-shrink-0 mr-3">
+                                <i class="fa fa-exclamation text-xs"></i>
+                            </div>
+                            <p class="text-sm text-gray-700">休眠后无法接收遥控器红外信号</p>
+                        </div>
+                        
+                        <div class="flex items-start">
+                            <div class="bg-blue-100 text-blue-700 rounded-full w-6 h-6 flex items-center justify-center flex-shrink-0 mr-3">
+                                <i class="fa fa-plug text-xs"></i>
+                            </div>
+                            <p class="text-sm text-gray-700">当有USB-C口用5V电源持续供电的时候：风扇不休眠，可以持续进行遥控或通过米家+红外网关进行远程遥控</p>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="text-center">
+                    <button id="closeInfraredModal2" class="neumorph-btn px-6 py-3 text-primary font-medium">
+                        关闭
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // 全局变量
+        let isConnected = false;
+        let isRecording = false;
+        let recordStartTime = 0;
+        let recordInterval = null;
+        let monitorChart = null;
+        let currentControlMode = 'number'; // 'number' 或 'slider'
+        let batteryCapacity = 2000; // mAh
+        let batteryVoltage = 3.7; // V
+        let devicePower = 10; // W
+        let device = null;
+        let recordedData = [];
+        let isWebHIDSupported = false;
+        
+        // 模拟数据
+        const simulateData = {
+            voltage: 3.7,
+            current: 0.5,
+            batteryLevel: 80,
+            gear: 0,
+            timer: 0,
+            batteryVoltage: 3.8,
+            batteryCurrent: 1.2
+        };
+        
+        // 初始化页面
+        document.addEventListener('DOMContentLoaded', function() {
+            // 模拟加载过程
+            let progress = 0;
+            const progressBar = document.getElementById('loadingProgressBar');
+            const progressInterval = setInterval(() => {
+                progress += 5;
+                progressBar.style.width = `${progress}%`;
+                
+                if (progress >= 100) {
+                    clearInterval(progressInterval);
+                    setTimeout(() => {
+                        document.getElementById('loadingOverlay').style.display = 'none';
+                        initializeApp();
+                    }, 500);
+                }
+            }, 100);
+        });
+        
+        // 初始化应用
+        function initializeApp() {
+            // 检查浏览器是否支持WebHID
+            checkWebHIDSupport();
+            
+            // 初始化图表
+            initChart();
+            
+            // 设置事件监听器
+            setupEventListeners();
+            
+            // 更新UI状态
+            updateUIStatus();
+            
+            // 设置页面导航
+            setupPageNavigation();
+        }
+        
+        // 检查WebHID支持情况
+        function checkWebHIDSupport() {
+            if ('hid' in navigator) {
+                isWebHIDSupported = true;
+                addLog('浏览器支持WebHID API', 'info');
+            } else {
+                isWebHIDSupported = false;
+                addLog('浏览器不支持WebHID API，将使用模拟模式', 'warning');
+                document.getElementById('connectBtn').disabled = true;
+            }
+        }
+        
+        // 设置页面导航
+        function setupPageNavigation() {
+            const navLinks = document.querySelectorAll('.nav-link');
+            const pages = document.querySelectorAll('.page');
+            
+            navLinks.forEach(link => {
+                link.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    
+                    // 更新导航状态
+                    navLinks.forEach(l => l.classList.remove('active'));
+                    this.classList.add('active');
+                    
+                    // 显示对应页面
+                    const pageId = this.getAttribute('data-page');
+                    pages.forEach(page => {
+                        page.classList.remove('active');
+                        if (page.id === pageId) {
+                            page.classList.add('active');
+                        }
+                    });
+                });
+            });
+        }
+        
+        // 切换常见问题显示
+        function toggleFaq(element) {
+            const answer = element.nextElementSibling;
+            const icon = element.querySelector('i');
+            
+            if (answer.classList.contains('hidden')) {
+                answer.classList.remove('hidden');
+                icon.classList.remove('fa-chevron-down');
+                icon.classList.add('fa-chevron-up');
+            } else {
+                answer.classList.add('hidden');
+                icon.classList.remove('fa-chevron-up');
+                icon.classList.add('fa-chevron-down');
+            }
+        }
+        
+        // 切换固件日志显示
+        function toggleFirmwareLog() {
+            const content = document.querySelector('.firmware-log-content');
+            const icon = document.querySelector('.firmware-log h3 i.fa-chevron-down');
+            
+            if (content.style.display === 'block') {
+                content.style.display = 'none';
+                icon.classList.remove('fa-chevron-up');
+                icon.classList.add('fa-chevron-down');
+            } else {
+                content.style.display = 'block';
+                icon.classList.remove('fa-chevron-down');
+                icon.classList.add('fa-chevron-up');
+            }
+        }
+        
+        // 初始化图表
+        function initChart() {
+            const ctx = document.getElementById('monitorChart').getContext('2d');
+            monitorChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: [],
+                    datasets: [
+                        {
+                            label: '设备电压 (V)',
+                            data: [],
+                            borderColor: '#3B82F6',
+                            backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                            borderWidth: 2,
+                            tension: 0.4,
+                            fill: true,
+                            hidden: false
+                        },
+                        {
+                            label: '设备电流 (A)',
+                            data: [],
+                            borderColor: '#10B981',
+                            backgroundColor: 'rgba(16, 185, 129, 0.1)',
+                            borderWidth: 2,
+                            tension: 0.4,
+                            fill: true,
+                            hidden: false
+                        },
+                        {
+                            label: '设备功率 (W)',
+                            data: [],
+                            borderColor: '#F59E0B',
+                            backgroundColor: 'rgba(245, 158, 11, 0.1)',
+                            borderWidth: 2,
+                            tension: 0.4,
+                            fill: true,
+                            hidden: false
+                        },
+                        {
+                            label: '电池电压 (V)',
+                            data: [],
+                            borderColor: '#EF4444',
+                            backgroundColor: 'rgaku(239, 68, 68, 0.1)',
+                            borderWidth: 2,
+                            tension: 0.4,
+                            fill: true,
+                            hidden: false
+                        },
+                        {
+                            label: '电池电流 (A)',
+                            data: [],
+                            borderColor: '#8B5CF6',
+                            backgroundColor: 'rgba(139, 92, 246, 0.1)',
+                            borderWidth: 2,
+                            tension: 0.4,
+                            fill: true,
+                            hidden: false
+                        },
+                        {
+                            label: '电池功率 (W)',
+                            data: [],
+                            borderColor: '#EC4899',
+                            backgroundColor: 'rgba(236, 72, 153, 0.1)',
+                            borderWidth: 2,
+                            tension: 0.4,
+                            fill: true,
+                            hidden: false
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            grid: {
+                                color: 'rgba(0, 0, 0, 0.05)'
+                            }
+                        },
+                        x: {
+                            grid: {
+                                display: false
+                            }
+                        }
+                    },
+                    plugins: {
+                        legend: {
+                            position: 'top',
+                        },
+                        tooltip: {
+                            mode: 'index',
+                            intersect: false
+                        }
+                    }
+                }
+            });
+            
+            // 添加曲线显示控制事件监听
+            document.getElementById('showDeviceVoltage').addEventListener('change', updateChartVisibility);
+            document.getElementById('showDeviceCurrent').addEventListener('change', updateChartVisibility);
+            document.getElementById('showDevicePower').addEventListener('change', updateChartVisibility);
+            document.getElementById('showBatteryVoltage').addEventListener('change', updateChartVisibility);
+            document.getElementById('showBatteryCurrent').addEventListener('change', updateChartVisibility);
+            document.getElementById('showBatteryPower').addEventListener('change', updateChartVisibility);
+        }
+        
+        // 更新图表曲线可见性
+        function updateChartVisibility() {
+            const datasets = monitorChart.data.datasets;
+            datasets[0].hidden = !document.getElementById('showDeviceVoltage').checked;
+            datasets[1].hidden = !document.getElementById('showDeviceCurrent').checked;
+            datasets[2].hidden = !document.getElementById('showDevicePower').checked;
+            datasets[3].hidden = !document.getElementById('showBatteryVoltage').checked;
+            datasets[4].hidden = !document.getElementById('showBatteryCurrent').checked;
+            datasets[5].hidden = !document.getElementById('showBatteryPower').checked;
+            monitorChart.update();
+        }
+        
+        // 设置事件监听器
+        function setupEventListeners() {
+            // 连接按钮
+            document.getElementById('connectBtn').addEventListener('click', connectDevice);
+            
+            // 模拟按钮
+            document.getElementById('simulateBtn').addEventListener('click', enableSimulation);
+            
+            // 断开连接按钮
+            document.getElementById('disconnectBtn').addEventListener('click', disconnectDevice);
+            
+            // 控制模式切换
+            document.getElementById('toggleControlMode').addEventListener('click', toggleControlMode);
+            
+            // 电池参数设置
+            document.getElementById('setBatteryParamsBtn').addEventListener('click', setBatteryParams);
+            
+            // 计算续航时间
+            document.getElementById('calculateRuntimeBtn').addEventListener('click', calculateRuntime);
+            
+            // 设置档位
+            document.getElementById('setGearBtn').addEventListener('click', setGear);
+            
+            // 设置定时
+            document.getElementById('setTimerBtn').addEventListener('click', setTimer);
+            
+            // 滑动条控制
+            document.getElementById('gearSlider').addEventListener('input', updateGearFromSlider);
+            document.getElementById('timerSlider').addEventListener('input', updateTimerFromSlider);
+            document.getElementById('applySliderBtn').addEventListener('click', applySliderSettings);
+            
+            // 自定义风速设置
+            document.getElementById('set1Btn').addEventListener('click', () => setCustomGear(1));
+            document.getElementById('set2Btn').addEventListener('click', () => setCustomGear(2));
+            document.getElementById('set3Btn').addEventListener('click', () => setCustomGear(3));
+            document.getElementById('set4Btn').addEventListener('click', () => setCustomGear(4));
+            document.getElementById('clearSettingsBtn').addEventListener('click', clearCustomSettings);
+            
+            // 自然风模式设置
+            document.getElementById('setWindSumBtn').addEventListener('click', setWindSum);
+            document.getElementById('setWindTimeBtn').addEventListener('click', setWindTime);
+            document.getElementById('setWindIndexBtn').addEventListener('click', setWindIndex);
+            document.getElementById('saveWindBtn').addEventListener('click', saveWindSettings);
+            document.getElementById('clearWindBtn').addEventListener('click', clearWindSettings);
+            
+            // 序列号管理
+            document.getElementById('readSerialBtn').addEventListener('click', readSerial);
+            document.getElementById('writeSerialBtn').addEventListener('click', writeSerial);
+            
+            // 手动指令发送
+            document.getElementById('sendCustomCommandBtn').addEventListener('click', sendCustomCommand);
+            document.getElementById('clearHistoryBtn').addEventListener('click', clearCommandHistory);
+            
+            // 日志控制
+            document.getElementById('clearLogBtn').addEventListener('click', clearLog);
+            document.getElementById('exportLogBtn').addEventListener('click', exportLog);
+            
+            // 曲线录制控制
+            document.getElementById('startRecordBtn').addEventListener('click', startRecording);
+            document.getElementById('stopRecordBtn').addEventListener('click', stopRecording);
+            document.getElementById('saveCurveBtn').addEventListener('click', saveCurve);
+            document.getElementById('importCurveInput').addEventListener('change', importCurve);
+            
+            // 视图模式切换
+            document.getElementById('viewLive').addEventListener('change', updateViewMode);
+            document.getElementById('viewRecorded').addEventListener('change', updateViewMode);
+            
+            // 红外遥控
+            document.getElementById('infraredModalBtn').addEventListener('click', () => {
+                document.getElementById('infraredModal').classList.remove('hidden');
+            });
+            
+            document.getElementById('closeInfraredModal').addEventListener('click', () => {
+                document.getElementById('infraredModal').classList.add('hidden');
+            });
+            
+            document.getElementById('closeInfraredModal2').addEventListener('click', () => {
+                document.getElementById('infraredModal').classList.add('hidden');
+            });
+            
+            // 联系表单
+            document.getElementById('contactForm').addEventListener('submit', handleContactForm);
+        }
+        
+        // 处理联系表单提交
+        function handleContactForm(e) {
+            e.preventDefault();
+            const name = document.getElementById('name').value;
+            const email = document.getElementById('email').value;
+            const message = document.getElementById('message').value;
+            
+            addLog(`感谢您的留言，${name}！我们会尽快回复您。`, 'success');
+            
+            // 清空表单
+            document.getElementById('contactForm').reset();
+            
+            // 在实际应用中，这里应该发送数据到服务器
+        }
+        
+        // 更新UI状态
+        function updateUIStatus() {
+            const connectBtn = document.getElementById('connectBtn');
+            const simulateBtn = document.getElementById('simulateBtn');
+            const disconnectBtn = document.getElementById('disconnectBtn');
+            const connectionStatus = document.getElementById('connectionStatus');
+            
+            if (isConnected) {
+                connectBtn.disabled = true;
+                simulateBtn.disabled = true;
+                disconnectBtn.disabled = false;
+                disconnectBtn.classList.remove('text-gray-400', 'cursor-not-allowed');
+                disconnectBtn.classList.add('text-red-500');
+                connectionStatus.innerHTML = '<div class="float-animation mr-3"><i class="fa fa-link text-2xl text-green-500"></i></div><span class="font-medium">设备已连接</span>';
+                
+                // 启用所有控制元素
+                enableControlElements(true);
+            } else {
+                connectBtn.disabled = !isWebHIDSupported;
+                simulateBtn.disabled = false;
+                disconnectBtn.disabled = true;
+                disconnectBtn.classList.add('text-gray-400', 'cursor-not-allowed');
+                disconnectBtn.classList.remove('text-red-500');
+                connectionStatus.innerHTML = '<div class="float-animation mr-3"><i class="fa fa-unlink text-2xl text-red-500"></i></div><span class="font-medium">设备未连接</span>';
+                
+                // 禁用所有控制元素
+                enableControlElements(false);
+            }
+        }
+        
+        // 启用/禁用控制元素
+        function enableControlElements(enabled) {
+            const elementsToToggle = [
+                'gearSelect', 'timerInput', 'setGearBtn', 'setTimerBtn',
+                'gearSlider', 'timerSlider', 'applySliderBtn',
+                'set1Input', 'set2Input', 'set3Input', 'set4Input',
+                'set1Btn', 'set2Btn', 'set3Btn', 'set4Btn', 'clearSettingsBtn',
+                'windSumInput', 'windTimeInput', 'windIndexInput', 'windSpeedInput',
+                'setWindSumBtn', 'setWindTimeBtn', 'setWindIndexBtn', 'saveWindBtn', 'clearWindBtn',
+                'serialInput', 'readSerialBtn', 'writeSerialBtn',
+                'customCommandInput', 'sendCustomCommandBtn', 'sendIRCommandBtn',
+                'startRecordBtn', 'stopRecordBtn', 'saveCurveBtn', 'importCurveInput',
+                'viewLive', 'viewRecorded'
+            ];
+            
+            elementsToToggle.forEach(id => {
+                const element = document.getElementById(id);
+                if (element) {
+                    element.disabled = !enabled;
+                }
+            });
+            
+            if (enabled) {
+                // 开始数据更新循环
+                startDataUpdate();
+            } else {
+                // 停止数据更新循环
+                stopDataUpdate();
+            }
+        }
+        
+        // 连接设备
+        async function connectDevice() {
+            addLog('尝试连接设备...', 'info');
+            
+            try {
+                // 请求设备访问权限
+                const devices = await navigator.hid.requestDevice({
+                    filters: [] // 空过滤器将显示所有HID设备
+                });
+                
+                if (devices.length === 0) {
+                    addLog('未选择任何设备', 'warning');
+                    return;
+                }
+                
+                device = devices[0];
+                addLog(`已选择设备: ${device.productName}`, 'info');
+                
+                // 打开设备
+                await device.open();
+                addLog('设备连接成功', 'success');
+                
+                isConnected = true;
+                updateUIStatus();
+                
+                // 监听设备输入报告
+                device.addEventListener('inputreport', handleInputReport);
+                
+            } catch (error) {
+                addLog(`设备连接失败: ${error.message}`, 'error');
+            }
+        }
+        
+        // 处理设备输入报告
+        function handleInputReport(event) {
+            const { data, device, reportId } = event;
+            addLog(`收到报告 from ${device.productName} (report ID ${reportId})`, 'info');
+            
+            // 解析数据并更新UI
+            // 这里需要根据实际设备的数据格式进行解析
+            updateDeviceData(data);
+        }
+        
+        // 更新设备数据
+        function updateDeviceData(data) {
+            // 这里需要根据实际设备的数据格式进行解析
+            // 示例：假设数据包含电压、电流等信息
+            simulateData.voltage = 3.7 + (Math.random() - 0.5) * 0.2;
+            simulateData.current = simulateData.gear > 0 ? (0.2 + simulateData.gear * 0.15 + (Math.random() - 0.5) * 0.1) : 0;
+            simulateData.batteryVoltage = 3.8 + (Math.random() - 0.5) * 0.1;
+            simulateData.batteryCurrent = simulateData.gear > 0 ? (1.0 + simulateData.gear * 0.1 + (Math.random() - 0.5) * 0.2) : 0;
+            
+            // 更新UI
+            updateMonitorData();
+            updateChart();
+        }
+        
+        // 启用模拟模式
+        function enableSimulation() {
+            addLog('启用模拟模式...', 'info');
+            
+            // 模拟连接过程
+            setTimeout(() => {
+                isConnected = true;
+                updateUIStatus();
+                addLog('模拟模式已启用，使用模拟数据进行演示', 'success');
+            }, 1000);
+        }
+        
+        // 断开设备连接
+        async function disconnectDevice() {
+            addLog('断开设备连接...', 'info');
+            
+            if (device) {
+                try {
+                    await device.close();
+                    addLog('设备已断开连接', 'info');
+                } catch (error) {
+                    addLog(`设备断开连接失败: ${error.message}`, 'error');
+                }
+            }
+            
+            isConnected = false;
+            updateUIStatus();
+        }
+        
+        // 切换控制模式
+        function toggleControlMode() {
+            const numberControl = document.getElementById('numberControl');
+            const sliderControl = document.getElementById('sliderControl');
+            
+            if (currentControlMode === 'number') {
+                numberControl.classList.add('hidden');
+                sliderControl.classList.remove('hidden');
+                currentControlMode = 'slider';
+            } else {
+                sliderControl.classList.add('hidden');
+                numberControl.classList.remove('hidden');
+                currentControlMode = 'number';
+            }
+        }
+        
+        // 设置电池参数
+        function setBatteryParams() {
+            batteryCapacity = parseInt(document.getElementById('batteryCapacityInput').value);
+            batteryVoltage = parseFloat(document.getElementById('batteryVoltageInput').value);
+            
+            addLog(`电池参数已更新: 容量=${batteryCapacity}mAh, 电压=${batteryVoltage}V`, 'info');
+            
+            // 重新计算续航时间
+            calculateRuntime();
+        }
+        
+        // 计算续航时间
+        function calculateRuntime() {
+            devicePower = parseFloat(document.getElementById('devicePowerInput').value);
+            
+            // 计算理论续航时间 (小时)
+            const batteryEnergy = batteryCapacity * batteryVoltage / 1000; // Wh
+            const theoreticalHours = batteryEnergy / devicePower;
+            
+            let theoreticalText;
+            if (theoreticalHours >= 1) {
+                theoreticalText = `${theoreticalHours.toFixed(1)} 小时`;
+            } else {
+                theoreticalText = `${(theoreticalHours * 60).toFixed(0)} 分钟`;
+            }
+            
+            document.getElementById('theoreticalRuntimeValue').textContent = theoreticalText;
+            addLog(`理论续航计算完成: ${theoreticalText} (基于${devicePower}W功率)`, 'info');
+        }
+        
+        // 设置档位
+        function setGear() {
+            const gear = parseInt(document.getElementById('gearSelect').value);
+            simulateData.gear = gear;
+            
+            addLog(`设置风速档位: ${gear}档`, 'info');
+            sendCommandToDevice(`GEAR=${gear}`);
+        }
+        
+        // 设置定时
+        function setTimer() {
+            const timer = parseInt(document.getElementById('timerInput').value);
+            simulateData.timer = timer;
+            
+            let timerText;
+            if (timer >= 60) {
+                timerText = `${(timer / 60).toFixed(1)} 分钟`;
+            } else {
+                timerText = `${timer} 秒`;
+            }
+            
+            addLog(`设置定时关机: ${timerText}`, 'info');
+            sendCommandToDevice(`TIMER=${timer}`);
+        }
+        
+        // 设置自定义档位风速
+        function setCustomGear(gear) {
+            const inputId = `set${gear}Input`;
+            const value = document.getElementById(inputId).value;
+            
+            addLog(`设置 ${gear} 档风速为 ${value}`, 'info');
+            sendCommandToDevice(`GSET${gear}=${value}`);
+        }
+        
+        // 清除自定义设置
+        function clearCustomSettings() {
+            addLog('清除自定义风速设置', 'info');
+            sendCommandToDevice('GCLR=0');
+        }
+        
+        // 从滑动条更新档位显示
+        function updateGearFromSlider() {
+            const gear = parseInt(document.getElementById('gearSlider').value);
+            document.getElementById('gearValue').textContent = `${gear}档`;
+        }
+        
+        // 从滑动条更新定时显示
+        function updateTimerFromSlider() {
+            const timer = parseInt(document.getElementById('timerSlider').value);
+            document.getElementById('timerValue').textContent = `${timer}分钟`;
+        }
+        
+        // 应用滑动条设置
+        function applySliderSettings() {
+            const gear = parseInt(document.getElementById('gearSlider').value);
+            const timer = parseInt(document.getElementById('timerSlider').value) * 60; // 转换为秒
+            
+            simulateData.gear = gear;
+            simulateData.timer = timer;
+            
+            addLog(`应用滑动设置: 档位=${gear}档, 定时=${timer}秒`, 'info');
+            sendCommandToDevice(`GEAR=${gear}&TIMER=${timer}`);
+        }
+        
+        // 设置自然风总点数
+        function setWindSum() {
+            const windSum = parseInt(document.getElementById('windSumInput').value);
+            addLog(`设置自然风总点数: ${windSum}`, 'info');
+            sendCommandToDevice(`WIND_SUM=${windSum}`);
+        }
+        
+        // 设置自然风时间跨度
+        function setWindTime() {
+            const windTime = parseInt(document.getElementById('windTimeInput').value);
+            addLog(`设置自然风时间跨度: ${windTime}秒`, 'info');
+            sendCommandToDevice(`WIND_TIME=${windTime}`);
+        }
+        
+        // 设置自然风点序号与风速
+        function setWindIndex() {
+            const windIndex = parseInt(document.getElementById('windIndexInput').value);
+            const windSpeed = parseInt(document.getElementById('windSpeedInput').value);
+            addLog(`设置自然风点 ${windIndex} 风速: ${windSpeed}%`, 'info');
+            sendCommandToDevice(`WIND_INDEX=${windIndex}&WIND_SPEED=${windSpeed}`);
+        }
+        
+        // 保存自然风设置
+        function saveWindSettings() {
+            addLog('保存自然风设置', 'info');
+            sendCommandToDevice('SAVE_WIND');
+        }
+        
+        // 清除自然风设置
+        function clearWindSettings() {
+            document.getElementById('windSumInput').value = 50;
+            document.getElementById('windTimeInput').value = 600;
+            document.getElementById('windIndexInput').value = 0;
+            document.getElementById('windSpeedInput').value = 50;
+            addLog('自然风设置已清除', 'info');
+            sendCommandToDevice('CLEAR_WIND');
+        }
+        
+        // 读取序列号
+        function readSerial() {
+            addLog('读取设备序列号', 'info');
+            
+            // 模拟读取序列号
+            setTimeout(() => {
+                const serial = 'W96D-' + Math.floor(Math.random() * 1000000).toString().padStart(6, '0');
+                document.getElementById('serialInput').value = serial;
+                addLog(`已读取设备序列号: ${serial}`, 'success');
+            }, 800);
+        }
+        
+        // 写入序列号
+        function writeSerial() {
+            const serial = document.getElementById('serialInput').value;
+            if (!serial) {
+                addLog('请输入序列号', 'error');
+                return;
+            }
+            
+            addLog(`写入设备序列号: ${serial}`, 'info');
+            sendCommandToDevice(`SERIAL=${serial}`);
+        }
+        
+        // 发送自定义指令
+        function sendCustomCommand() {
+            const command = document.getElementById('customCommandInput').value.trim();
+            if (!command) return;
+            
+            addLog(`发送指令: ${command}`, 'info');
+            sendCommandToDevice(command);
+            
+            // 添加到指令历史
+            const historyElement = document.getElementById('commandHistory');
+            const newEntry = document.createElement('div');
+            newEntry.textContent = `> ${command}`;
+            historyElement.appendChild(newEntry);
+            
+            // 滚动到底部
+            historyElement.scrollTop = historyElement.scrollHeight;
+            
+            // 清空输入框
+            document.getElementById('customCommandInput').value = '';
+        }
+        
+        // 发送指令到设备
+        async function sendCommandToDevice(command) {
+            if (!device && !isConnected) {
+                addLog('未连接设备，无法发送指令', 'warning');
+                return;
+            }
+            
+            try {
+                if (device) {
+                    // 将指令转换为字节数组
+                    const encoder = new TextEncoder();
+                    const data = encoder.encode(command);
+                    
+                    // 发送数据到设备
+                    await device.sendReport(0, data);
+                }
+                addLog(`指令已发送: ${command}`, 'success');
+            } catch (error) {
+                addLog(`发送指令失败: ${error.message}`, 'error');
+            }
+        }
+        
+        // 清除指令历史
+        function clearCommandHistory() {
+            document.getElementById('commandHistory').innerHTML = '';
+            addLog('指令历史已清除', 'info');
+        }
+        
+        // 开始录制曲线
+        function startRecording() {
+            isRecording = true;
+            recordStartTime = Date.now();
+            recordedData = [];
+            
+            document.getElementById('recordingStatus').textContent = '录制中';
+            document.getElementById('recordingStatus').classList.remove('bg-blue-100', 'text-blue-600');
+            document.getElementById('recordingStatus').classList.add('bg-red-100', 'text-red-600');
+            
+            addLog('开始录制监控曲线', 'info');
+            
+            // 更新录制时间
+            recordInterval = setInterval(() => {
+                const elapsed = Math.floor((Date.now() - recordStartTime) / 1000);
+                const minutes = Math.floor(elapsed / 60).toString().padStart(2, '0');
+                const seconds = (elapsed % 60).toString().padStart(2, '0');
+                document.getElementById('recordDuration').textContent = `时长: ${minutes}:${seconds}`;
+            }, 1000);
+        }
+        
+        // 停止录制曲线
+        function stopRecording() {
+            if (!isRecording) return;
+            
+            isRecording = false;
+            clearInterval(recordInterval);
+            
+            document.getElementById('recordingStatus').textContent = '已停止';
+            document.getElementById('recordingStatus').classList.remove('bg-red-100', 'text-red-600');
+            document.getElementById('recordingStatus').classList.add('bg-blue-100', 'text-blue-600');
+            
+            const elapsed = Math.floor((Date.now() - recordStartTime) / 1000);
+            addLog(`停止录制，时长: ${elapsed}秒`, 'info');
+        }
+        
+        // 保存曲线
+        function saveCurve() {
+            if (recordedData.length === 0) {
+                addLog('没有录制数据可供保存', 'warning');
+                return;
+            }
+            
+            const dataStr = JSON.stringify(recordedData);
+            const dataUri = 'data:application/json;charset=utf-8,'+ encodeURIComponent(dataStr);
+            
+            const exportFileDefaultName = `fan_curve_${new Date().toISOString().replace(/:/g, '-')}.json`;
+            
+            const linkElement = document.createElement('a');
+            linkElement.setAttribute('href', dataUri);
+            linkElement.setAttribute('download', exportFileDefaultName);
+            linkElement.click();
+            
+            addLog('曲线数据已保存', 'success');
+        }
+        
+        // 导入曲线
+        function importCurve(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const data = JSON.parse(e.target.result);
+                    recordedData = data;
+                    addLog('曲线数据已导入', 'info');
+                    
+                    // 切换到录制视图
+                    document.getElementById('viewRecorded').checked = true;
+                    updateViewMode();
+                } catch (error) {
+                    addLog('导入曲线数据失败: 文件格式不正确', 'error');
+                }
+            };
+            reader.readAsText(file);
+        }
+        
+        // 更新视图模式
+        function updateViewMode() {
+            const isLiveView = document.getElementById('viewLive').checked;
+            
+            if (isLiveView) {
+                // 实时视图
+                addLog('切换至实时视图', 'info');
+            } else {
+                // 录制视图
+                if (recordedData.length > 0) {
+                    addLog('切换至录制视图', 'info');
+                    // 在这里可以添加代码来显示录制的数据
+                } else {
+                    addLog('没有录制数据可供查看', 'warning');
+                    document.getElementById('viewLive').checked = true;
+                }
+            }
+        }
+        
+        // 清除日志
+        function clearLog() {
+            document.getElementById('logContent').innerHTML = '';
+            addLog('日志已清除', 'info');
+        }
+        
+        // 导出日志
+        function exportLog() {
+            const logContent = document.getElementById('logContent').innerText;
+            const dataUri = 'data:text/plain;charset=utf-8,'+ encodeURIComponent(logContent);
+            
+            const exportFileDefaultName = `fan_log_${new Date().toISOString().replace(/:/g, '-')}.txt`;
+            
+            const linkElement = document.createElement('a');
+            linkElement.setAttribute('href', dataUri);
+            linkElement.setAttribute('download', exportFileDefaultName);
+            linkElement.click();
+            
+            addLog('日志已导出', 'success');
+        }
+        
+        // 添加日志条目
+        function addLog(message, type = 'info') {
+            const logElement = document.getElementById('logContent');
+            const newEntry = document.createElement('div');
+            
+            let prefix;
+            switch (type) {
+                case 'info':
+                    prefix = '[信息]';
+                    break;
+                case 'success':
+                    prefix = '[成功]';
+                    newEntry.style.color = '#10B981';
+                    break;
+                case 'warning':
+                    prefix = '[警告]';
+                    newEntry.style.color = '#F59E0B';
+                    break;
+                case 'error':
+                    prefix = '[错误]';
+                    newEntry.style.color = '#EF4444';
+                    break;
+                default:
+                    prefix = '[信息]';
+            }
+            
+            const timestamp = new Date().toLocaleTimeString();
+            newEntry.textContent = `${timestamp} ${prefix} ${message}`;
+            logElement.appendChild(newEntry);
+            
+            // 滚动到底部
+            logElement.scrollTop = logElement.scrollHeight;
+        }
+        
+        // 开始数据更新循环
+        function startDataUpdate() {
+            // 模拟数据更新
+            if (window.dataUpdateInterval) {
+                clearInterval(window.dataUpdateInterval);
+            }
+            
+            // 每0.1秒更新一次数据
+            window.dataUpdateInterval = setInterval(() => {
+                // 生成一些随机波动
+                const voltageVariation = (Math.random() - 0.5) * 0.2;
+                const currentVariation = (Math.random() - 0.5) * 0.1;
+                const batteryVoltageVariation = (Math.random() - 0.5) * 0.1;
+                const batteryCurrentVariation = (Math.random() - 0.5) * 0.2;
+                
+                // 更新模拟数据
+                simulateData.voltage = Math.max(3.2, Math.min(4.2, simulateData.voltage + voltageVariation));
+                simulateData.current = simulateData.gear > 0 ? (0.2 + simulateData.gear * 0.15 + currentVariation) : 0;
+                simulateData.batteryVoltage = Math.max(3.5, Math.min(4.2, simulateData.batteryVoltage + batteryVoltageVariation));
+                simulateData.batteryCurrent = simulateData.gear > 0 ? (1.0 + simulateData.gear * 0.1 + batteryCurrentVariation) : 0;
+                
+                // 缓慢降低电量
+                if (simulateData.gear > 0 && Math.random() < 0.1) {
+                    simulateData.batteryLevel = Math.max(0, simulateData.batteryLevel - 0.1);
+                }
+                
+                // 记录数据（如果正在录制）
+                if (isRecording) {
+                    recordedData.push({
+                        timestamp: Date.now(),
+                        voltage: simulateData.voltage,
+                        current: simulateData.current,
+                        batteryVoltage: simulateData.batteryVoltage,
+                        batteryCurrent: simulateData.batteryCurrent,
+                        gear: simulateData.gear
+                    });
+                }
+                
+                // 更新UI
+                updateMonitorData();
+                
+                // 更新图表
+                updateChart();
+                
+            }, 100); // 0.1秒间隔
+        }
+        
+        // 停止数据更新循环
+        function stopDataUpdate() {
+            if (window.dataUpdateInterval) {
+                clearInterval(window.dataUpdateInterval);
+                window.dataUpdateInterval = null;
+            }
+        }
+        
+        // 更新监控数据
+        function updateMonitorData() {
+            document.getElementById('voltageValue').textContent = `${simulateData.voltage.toFixed(2)} V`;
+            document.getElementById('currentValue').textContent = `${simulateData.current.toFixed(2)} A`;
+            
+            const devicePower = simulateData.voltage * simulateData.current;
+            const batteryPower = simulateData.batteryVoltage * simulateData.batteryCurrent;
+            
+            document.getElementById('powerValue').textContent = `${devicePower.toFixed(2)} W`;
+            document.getElementById('batteryPowerValue').textContent = `${batteryPower.toFixed(2)} W`;
+            document.getElementById('devicePowerValue').textContent = `${devicePower.toFixed(2)} W`;
+            
+            document.getElementById('batteryPercentage').textContent = simulateData.batteryLevel.toFixed(1);
+            document.getElementById('batteryBar').style.width = `${simulateData.batteryLevel}%`;
+            
+            // 更新状态信息
+            document.getElementById('statusInfo').innerHTML = `
+                <div class="font-medium">设备状态: ${simulateData.gear > 0 ? '运行中' : '待机'}</div>
+                <div>档位: ${simulateData.gear}档 | 电流: ${simulateData.current.toFixed(2)}A</div>
+                <div>电压: ${simulateData.voltage.toFixed(2)}V | 功率: ${devicePower.toFixed(2)}W</div>
+                <div>电池电压: ${simulateData.batteryVoltage.toFixed(2)}V | 电池电流: ${simulateData.batteryCurrent.toFixed(2)}A</div>
+            `;
+            
+            // 更新电池估算
+            if (simulateData.gear > 0) {
+                const remainingHours = (simulateData.batteryLevel / 100) * (batteryCapacity * batteryVoltage / 1000) / devicePower;
+                let estimateText;
+                
+                if (remainingHours >= 1) {
+                    estimateText = `${remainingHours.toFixed(1)}小时`;
+                } else {
+                    estimateText = `${(remainingHours * 60).toFixed(0)}分钟`;
+                }
+                
+                document.getElementById('batteryEstimate').textContent = `约剩余${estimateText}`;
+                document.getElementById('realtimeRuntimeValue').textContent = estimateText;
+            } else {
+                document.getElementById('batteryEstimate').textContent = '设备待机中';
+                document.getElementById('realtimeRuntimeValue').textContent = '--';
+            }
+        }
+        
+        // 更新图表
+        function updateChart() {
+            const now = new Date();
+            const timeLabel = `${now.getMinutes()}:${now.getSeconds().toString().padStart(2, '0')}.${Math.floor(now.getMilliseconds()/100)}`;
+            
+            // 添加新数据点
+            monitorChart.data.labels.push(timeLabel);
+            monitorChart.data.datasets[0].data.push(simulateData.voltage);
+            monitorChart.data.datasets[1].data.push(simulateData.current);
+            monitorChart.data.datasets[2].data.push(simulateData.voltage * simulateData.current);
+            monitorChart.data.datasets[3].data.push(simulateData.batteryVoltage);
+            monitorChart.data.datasets[4].data.push(simulateData.batteryCurrent);
+            monitorChart.data.datasets[5].data.push(simulateData.batteryVoltage * simulateData.batteryCurrent);
+            
+            // 限制数据点数量
+            if (monitorChart.data.labels.length > 50) {
+                monitorChart.data.labels.shift();
+                monitorChart.data.datasets.forEach(dataset => {
+                    dataset.data.shift();
+                });
+            }
+            
+            // 更新图表
+            monitorChart.update();
+        }
+        
+        // 发送红外指令
+        function sendIRCommand(command) {
+            if (!isConnected) {
+                addLog('未连接设备，无法发送指令', 'warning');
+                return;
+            }
+            
+            addLog(`发送红外指令: ${command}`, 'info');
+            
+            // 在实际应用中，这里应该通过WebHID发送红外指令
+            // 这里只是模拟
+            let action = '';
+            switch(command) {
+                case 'volume_up':
+                    action = '加档';
+                    simulateData.gear = Math.min(4, simulateData.gear + 1);
+                    break;
+                case 'volume_down':
+                    action = '减档';
+                    simulateData.gear = Math.max(0, simulateData.gear - 1);
+                    break;
+                case 'home':
+                    action = '切换自然风模式';
+                    break;
+                case 'menu':
+                    action = '定时设置';
+                    break;
+                case 'power':
+                    action = simulateData.gear > 0 ? '关机' : '开机';
+                    simulateData.gear = simulateData.gear > 0 ? 0 : 2;
+                    break;
+            }
+            
+            addLog(`红外指令已执行: ${action}`, 'success');
+            document.getElementById('gearSelect').value = simulateData.gear;
+            document.getElementById('gearSlider').value = simulateData.gear;
+            document.getElementById('gearValue').textContent = `${simulateData.gear}档`;
+        }
+    </script>
+</body>
+</html>
