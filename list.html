@@ -85,13 +85,7 @@
 (() => {
   "use strict";
 
-  /* ====== 配置：你的 GitHub 仓库（公网场景使用） ====== */
-  const CONFIG = {
-    owner: "Angel-GP",
-    repo: "Angel-GP.github.io",
-    branch: "main",
-  };
-
+  /* ====== 页面自身标记（用于识别目录列表遮蔽） ====== */
   const MARKER = "DIRLIST_PAGE_V3";
 
   const listEl = document.getElementById("list");
@@ -136,27 +130,15 @@
     return null;
   }
 
-  /* ---------- 数据源 B：GitHub API（GitHub Pages 场景，一次请求拿全量文件树） ---------- */
-  async function apiScan() {
-    const url =
-      `https://api.github.com/repos/${CONFIG.owner}/${CONFIG.repo}/git/trees/${CONFIG.branch}?recursive=1`;
-    const res = await fetch(url, { cache: "no-store" });
-    if (!res.ok) throw new Error("API " + res.status);
+  /* ---------- 数据源 B：同源文件清单 files.json（公网 / GitHub Pages，无外部依赖） ---------- */
+  async function jsonScan() {
+    const res = await fetch("./files.json", { cache: "no-store" });
+    if (!res.ok) throw new Error("HTTP " + res.status);
     const data = await res.json();
-    if (!data || !Array.isArray(data.tree)) throw new Error("bad data");
-
-    const folders = new Map(); // 文件夹名 -> index 文件名
-    for (const item of data.tree) {
-      const parts = String(item.path || "").split("/");
-      if (parts.length === 1 && item.type === "tree" && parts[0]) {
-        if (!folders.has(parts[0])) folders.set(parts[0], null);
-      } else if (parts.length === 2 && item.type === "blob" && /^index\.html?$/i.test(parts[1])) {
-        folders.set(parts[0], folders.get(parts[0]) || parts[1]);
-      }
-    }
-    return [...folders.entries()]
-      .filter(([, idx]) => idx)
-      .map(([name, idx]) => ({ name, href: name + "/", idx }));
+    if (!data || !Array.isArray(data.folders)) throw new Error("bad data");
+    return data.folders
+      .filter((f) => f && f.name && f.idx)
+      .map((f) => ({ name: f.name, href: f.name + "/", idx: f.idx }));
   }
 
   /* ---------- 主流程 ---------- */
@@ -175,18 +157,18 @@
           .map(async (d) => ({ name: d.name, href: d.href, idx: await probeIndex(d.href) }))
       );
     } catch (e) {
-      // B: GitHub API（公网 / GitHub Pages）
+      // B: 同源文件清单（公网 / GitHub Pages）
       try {
-        entries = await apiScan();
+        entries = await jsonScan();
       } catch (e2) {
         msgEl.innerHTML = e instanceof TypeError
           ? `无法获取文件夹列表。<br>本页有两种使用方式：<br>
              ① 本地：运行 <code>python -m http.server 8000</code> 后访问 <code>http://localhost:8000/list.html</code><br>
-             ② 公网：部署到 GitHub Pages（访问时会自动读取 GitHub 仓库文件树）<br><br>
+             ② 公网：部署到 GitHub Pages（读取同源的 <code>files.json</code> 清单）<br><br>
              详细错误：${esc(e2.message)}`
           : `无法获取文件夹列表（${esc(e2.message)}）。<br>
              本地运行时请确认：目录下没有 <code>index.html</code> 遮蔽列表；<br>
-             公网运行时：GitHub API 每小时限额 60 次，可能暂时用尽，请稍后再试。`;
+             公网运行时请确认：仓库中存在 <code>files.json</code> 清单文件。`;
         msgEl.classList.add("show");
         listEl.innerHTML = "";
         return;
