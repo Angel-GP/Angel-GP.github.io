@@ -83,16 +83,18 @@
 
 <!-- Jekyll 构建时注入：仓库中所有一级文件夹及其 index 文件 -->
 <script id="jekyll-data" type="application/json">
-{% assign folder_names = "" %}
+{% assign folders = "" %}
 {% for f in site.static_files %}
   {% assign parts = f.path | split: "/" %}
-  {% if parts.size == 3 and parts[2] == "index.html" %}
-    {% assign folder_names = folder_names | append: parts[1] | append: "|" %}
+  {% if parts.size == 3 %}
+    {% if parts[2] == "index.html" or parts[2] == "index.htm" %}
+      {% assign folders = folders | append: parts[1] | append: "=" | append: parts[2] | append: "|" %}
+    {% endif %}
   {% endif %}
 {% endfor %}
 {
-  "folders": [{% assign first = true %}{% assign names = folder_names | split: "|" | uniq %}{% for n in names %}{% if n != "" %}{% unless first %},{% endunless %}
-    { "name": "{{ n }}", "idx": "index.html" }{% assign first = false %}{% endif %}{% endfor %}
+  "folders": [{% assign first = true %}{% assign entries = folders | split: "|" | uniq %}{% for e in entries %}{% if e != "" %}{% assign kv = e | split: "=" %}{% unless first %},{% endunless %}
+    { "name": "{{ kv[0] }}", "idx": "{{ kv[1] }}" }{% assign first = false %}{% endif %}{% endfor %}
   ]
 }
 </script>
@@ -163,7 +165,14 @@
     if (!el) return null;
     try {
       const data = JSON.parse(el.textContent);
-      return Array.isArray(data.folders) ? data.folders : null;
+      if (!Array.isArray(data.folders)) return null;
+      // 同一文件夹同时存在 index.html 和 index.htm 时去重，优先 index.html
+      const seen = new Map();
+      for (const f of data.folders) {
+        const prev = seen.get(f.name);
+        if (!prev || (prev.idx === "index.htm" && f.idx === "index.html")) seen.set(f.name, f);
+      }
+      return [...seen.values()];
     } catch (e) { return null; }
   }
 
