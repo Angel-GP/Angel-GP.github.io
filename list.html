@@ -185,8 +185,7 @@
              ② 公网：部署到 GitHub Pages（访问时会自动读取 GitHub 仓库文件树）<br><br>
              详细错误：${esc(e2.message)}`
           : `无法获取文件夹列表（${esc(e2.message)}）。<br>
-             本地运行时请确认：目录下没有 <code>index.html</code> 遮蔽列表；<br>
-             公网运行时：GitHub API 每小时限额 60 次，可能暂时用尽，请稍后再试。`;
+             本地运行时请确认：目录下没有 <code>index.html</code> 遮蔽列表。`;
         msgEl.classList.add("show");
         listEl.innerHTML = "";
         return;
