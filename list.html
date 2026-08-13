@@ -79,12 +79,19 @@
   <div class="msg" id="msg"></div>
   <main id="list"></main>
 
-  <footer>点击文件夹直接打开其中的 index 页面 · 需通过本地服务器访问（python -m http.server）</footer>
+  <footer>点击文件夹打开其中的 index 页面 · 本地用 python -m http.server，公网自动走 GitHub API</footer>
 </div>
 
 <script>
 (() => {
   "use strict";
+
+  /* ====== 配置：你的 GitHub 仓库（公网场景使用） ====== */
+  const CONFIG = {
+    owner: "Angel-GP",
+    repo: "Angel-GP.github.io",
+    branch: "main",
+  };
 
   const MARKER = "DIRLIST_PAGE_V3";
 
@@ -103,7 +110,7 @@
 
   const isListing = (text) => /Directory listing for/i.test(text) || /Index of \//i.test(text);
 
-  /* 解析根目录列表，拿到所有子文件夹 */
+  /* ---------- 数据源 A：本地服务器目录列表 ---------- */
   async function parseRoot() {
     const res = await fetch("./", { cache: "no-store" });
     if (!res.ok) throw new Error("HTTP " + res.status);
@@ -120,7 +127,6 @@
     return dirs;
   }
 
-  /* 探测文件夹里 index.html / index.htm 的具体文件名（仅用于构建精确链接） */
   async function probeIndex(dirHref) {
     for (const idx of ["index.html", "index.htm"]) {
       try {
@@ -131,32 +137,62 @@
     return null;
   }
 
+  /* ---------- 数据源 B：GitHub API（GitHub Pages 场景，一次请求拿全量文件树） ---------- */
+  async function apiScan() {
+    const url =
+      `https://api.github.com/repos/${CONFIG.owner}/${CONFIG.repo}/git/trees/${CONFIG.branch}?recursive=1`;
+    const res = await fetch(url, { cache: "no-store" });
+    if (!res.ok) throw new Error("API " + res.status);
+    const data = await res.json();
+    if (!data || !Array.isArray(data.tree)) throw new Error("bad data");
+
+    const folders = new Map(); // 文件夹名 -> index 文件名
+    for (const item of data.tree) {
+      const parts = String(item.path || "").split("/");
+      if (parts.length === 1 && item.type === "tree" && parts[0]) {
+        if (!folders.has(parts[0])) folders.set(parts[0], null);
+      } else if (parts.length === 2 && item.type === "blob" && /^index\.html?$/i.test(parts[1])) {
+        folders.set(parts[0], folders.get(parts[0]) || parts[1]);
+      }
+    }
+    return [...folders.entries()]
+      .filter(([, idx]) => idx)
+      .map(([name, idx]) => ({ name, href: name + "/", idx }));
+  }
+
+  /* ---------- 主流程 ---------- */
   async function main() {
     msgEl.classList.remove("show");
     summaryEl.textContent = "";
     listEl.innerHTML = '<div class="empty">正在扫描…</div>';
 
-    let dirs;
+    let entries;
     try {
-      dirs = await parseRoot();
+      // A: 本地服务器目录列表
+      const dirs = await parseRoot();
+      entries = await Promise.all(
+        dirs
+          .sort((a, b) => a.name.localeCompare(b.name, "zh"))
+          .map(async (d) => ({ name: d.name, href: d.href, idx: await probeIndex(d.href) }))
+      );
     } catch (e) {
-      msgEl.innerHTML = e instanceof TypeError
-        ? `无法扫描目录。<br>浏览器以 <code>file://</code> 方式打开本页时不允许读取目录，请用本地服务器打开：<br>
-           ① 在本目录打开终端运行 <code>python -m http.server 8000</code><br>
-           ② 浏览器访问 <code>http://localhost:8000/list.html</code>`
-        : `无法读取目录列表。<br>根目录存在 <code>index.html</code> 时，服务器优先返回它而不是文件夹列表。<br>
-           请删除或改名根目录的 <code>index.html</code>，然后点「🔄 刷新」。`;
-      msgEl.classList.add("show");
-      listEl.innerHTML = "";
-      return;
+      // B: GitHub API（公网 / GitHub Pages）
+      try {
+        entries = await apiScan();
+      } catch (e2) {
+        msgEl.innerHTML = e instanceof TypeError
+          ? `无法获取文件夹列表。<br>本页有两种使用方式：<br>
+             ① 本地：运行 <code>python -m http.server 8000</code> 后访问 <code>http://localhost:8000/list.html</code><br>
+             ② 公网：部署到 GitHub Pages（访问时会自动读取 GitHub 仓库文件树）<br><br>
+             详细错误：${esc(e2.message)}`
+          : `无法获取文件夹列表（${esc(e2.message)}）。<br>
+             本地运行时请确认：目录下没有 <code>index.html</code> 遮蔽列表；<br>
+             公网运行时：GitHub API 每小时限额 60 次，可能暂时用尽，请稍后再试。`;
+        msgEl.classList.add("show");
+        listEl.innerHTML = "";
+        return;
+      }
     }
-
-    // 并发探测每个文件夹的 index 文件名
-    const entries = await Promise.all(
-      dirs
-        .sort((a, b) => a.name.localeCompare(b.name, "zh"))
-        .map(async (d) => ({ name: d.name, href: d.href, idx: await probeIndex(d.href) }))
-    );
 
     render(entries);
   }
@@ -168,7 +204,7 @@
     listEl.innerHTML = "";
     if (!entries.length) {
       summaryEl.textContent = "";
-      listEl.innerHTML = '<div class="empty">当前目录下没有包含 index 页面的文件夹</div>';
+      listEl.innerHTML = '<div class="empty">没有找到包含 index 页面的文件夹</div>';
       return;
     }
 
