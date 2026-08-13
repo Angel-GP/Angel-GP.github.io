@@ -86,12 +86,11 @@
 {% assign folder_names = "" %}
 {% for f in site.static_files %}
   {% assign parts = f.path | split: "/" %}
-  {% if parts.size == 2 and parts[1] == "index.html" %}
-    {% assign folder_names = folder_names | append: parts[0] | append: "|" %}
+  {% if parts.size == 3 and parts[2] == "index.html" %}
+    {% assign folder_names = folder_names | append: parts[1] | append: "|" %}
   {% endif %}
 {% endfor %}
 {
-  "debug": "static={{ site.static_files.size }} pages={{ site.pages.size }} first={% for f in site.static_files limit: 1 %}{{ f.path }}{% endfor %}",
   "folders": [{% assign first = true %}{% assign names = folder_names | split: "|" | uniq %}{% for n in names %}{% if n != "" %}{% unless first %},{% endunless %}
     { "name": "{{ n }}", "idx": "index.html" }{% assign first = false %}{% endif %}{% endfor %}
   ]
