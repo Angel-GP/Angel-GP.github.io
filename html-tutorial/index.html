@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta http-equiv="X-UA-Compatible" content="IE=edge">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Angel的HTML教程</title>
+<style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+        min-height: 100vh;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+        background:
+            radial-gradient(900px 520px at 85% -10%, rgba(59, 130, 246, .18), transparent 60%),
+            radial-gradient(720px 460px at 0% 100%, rgba(139, 92, 246, .15), transparent 60%),
+            #eef2f8;
+        color: #1f2937;
+    }
+
+    .card {
+        background: #fff;
+        border-radius: 18px;
+        padding: 44px 52px;
+        text-align: center;
+        box-shadow: 0 16px 48px rgba(15, 23, 42, .12);
+        animation: pop .45s ease both;
+    }
+
+    .logo {
+        width: 64px;
+        height: 64px;
+        margin: 0 auto 20px;
+        border-radius: 16px;
+        background: linear-gradient(135deg, #3b82f6, #8b5cf6);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-family: Consolas, monospace;
+        font-size: 26px;
+        font-weight: 700;
+        color: #fff;
+        box-shadow: 0 10px 24px rgba(59, 130, 246, .35);
+    }
+
+    .spinner {
+        width: 34px;
+        height: 34px;
+        margin: 0 auto 14px;
+        border-radius: 50%;
+        border: 3px solid #dbe4f0;
+        border-top-color: #3b82f6;
+        animation: spin .8s linear infinite;
+    }
+
+    p { font-size: .95rem; color: #6b7280; }
+
+    @keyframes spin { to { transform: rotate(360deg); } }
+    @keyframes pop { from { opacity: 0; transform: translateY(14px) scale(.96); } }
+</style>
+</head>
+<body>
+    <div class="card">
+        <div class="logo">&lt;/&gt;</div>
+        <div class="spinner"></div>
+        <p>正在为你打开 Angel 的 HTML 教程…</p>
+    </div>
+
+    <script>
+        // 按用户代理分流：手机 → pe.html，电脑 → pc.html
+        (function () {
+            var sUserAgent = navigator.userAgent.toLowerCase();
+            var bIsIpad = sUserAgent.match(/ipad/i) == "ipad";
+            var bIsIphoneOs = sUserAgent.match(/iphone os/i) == "iphone os";
+            var bIsMidp = sUserAgent.match(/midp/i) == "midp";
+            var bIsUc7 = sUserAgent.match(/rv:1.2.3.4/i) == "rv:1.2.3.4";
+            var bIsUc = sUserAgent.match(/ucweb/i) == "ucweb";
+            var bIsAndroid = sUserAgent.match(/android/i) == "android";
+            var bIsCE = sUserAgent.match(/windows ce/i) == "windows ce";
+            var bIsWM = sUserAgent.match(/windows mobile/i) == "windows mobile";
+            if (bIsIpad || bIsIphoneOs || bIsMidp || bIsUc7 || bIsUc || bIsAndroid || bIsCE || bIsWM) {
+                window.location.href = "pe.html";
+            } else {
+                window.location.href = "pc.html";
+            }
+        })();
+    </script>
+</body>
+</html>
