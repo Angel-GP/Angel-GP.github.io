@@ -100,6 +100,27 @@ body.subnav-open .导航栏1 { display: inline-block; }
   padding: calc(var(--nav-h) + 18px) 14px 90px;
 }
 
+h1 {
+  margin: 4px 0 6px;
+  text-align: center;
+  font-size: 1.9rem;
+  letter-spacing: 2px;
+  background: linear-gradient(90deg, #2563eb, #8b5cf6);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  user-select: none;
+}
+
+h3.center {
+  margin: 0 0 4px;
+  text-align: center;
+  font-weight: 400;
+  font-size: .85rem;
+  color: var(--muted);
+  user-select: none;
+}
+
 h2 {
   margin: 26px 0 14px;
   padding-left: 10px;
