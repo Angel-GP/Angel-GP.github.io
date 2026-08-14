@@ -320,28 +320,114 @@ img {
   box-shadow: 0 8px 22px rgba(15, 23, 42, .1);
 }
 
-/* ============ 响应式（窄屏时侧栏变顶栏） ============ */
+/* ============ 响应式（≤960px 切换为手机布局：侧栏变顶部固定导航） ============ */
 @media (max-width: 960px) {
   body { font-size: 15px; padding-left: 0; }
 
   .sidenav {
-    position: static;
-    width: 100%; height: auto;
-    display: flex; align-items: center; gap: 4px;
-    padding: 10px 12px;
-    overflow-x: auto; overflow-y: hidden;
-    box-shadow: 0 2px 14px rgba(15, 23, 42, .25);
+    position: fixed;
+    top: 0; left: 0; right: 0; bottom: auto;
+    width: auto;                      /* 覆盖桌面端的 224px 固定宽度，横向铺满 */
+    height: 50px;
+    display: flex;
+    align-items: center;
+    gap: 2px;
+    padding: 0 8px;
+    overflow-x: auto;
+    overflow-y: hidden;
+    background: #0f172a;
+    box-shadow: 0 2px 14px rgba(15, 23, 42, .3);
+    scrollbar-width: none;
   }
+  .sidenav::-webkit-scrollbar { display: none; }
+
   .导航标题 { display: none; }
-  .导航栏, .导航栏1 {
+
+  .导航栏,
+  .导航栏1 {
     flex: 0 0 auto;
     display: inline-block;
     white-space: nowrap;
-    padding: 7px 12px;
+    padding: 7px 11px;
     margin: 0;
-    font-size: .85rem;
+    border-radius: 8px;
+    font-size: .82rem;
   }
-  body .sidenav .导航栏1 { display: inline-block; padding-left: 12px; font-size: .78rem; }
+  .导航栏 { font-weight: 600; }
+  body .sidenav .导航栏1 {
+    display: none;
+    margin-left: 2px;
+    padding: 7px 11px;                /* 覆盖桌面端左侧 28px 缩进 */
+    font-size: .75rem;
+    color: #94a3b8;
+    background: rgba(255, 255, 255, .06);
+  }
+  body.subnav-open .sidenav .导航栏1 { display: inline-block; }
 
-  .main { margin: 16px 14px 80px; padding: 30px 20px 60px; }
+  .sidenav a:hover { transform: none; }
+
+  .main {
+    margin: 0 auto;
+    max-width: 760px;
+    padding: 68px 14px 90px;
+    background: transparent;
+    border-radius: 0;
+    box-shadow: none;
+    animation: none;
+  }
+
+  h1 { font-size: 1.9rem; }
+  h3.center { font-size: .85rem; }
+
+  .分割线 { margin: 34px 0; }
+  .分割线::after { background: #eef2f8; }
+
+  h2 {
+    margin: 26px 0 14px;
+    padding-left: 10px;
+    border-left: 4px solid var(--accent);
+    font-size: 1.3rem;
+  }
+  h2[id], h4[id] { scroll-margin-top: 62px; }
+
+  h4 { margin: 24px 0 10px; font-size: 1.05rem; }
+  h4[id] { padding: 3px 13px; font-size: .95rem; }
+
+  p { margin: 8px 0; }
+
+  /* 表格：过宽时横向滚动 */
+  table {
+    display: block;
+    max-width: 100%;
+    margin: 14px auto 22px;
+    border: 1px solid var(--line);
+    border-radius: 0;
+    box-shadow: none;
+    overflow-x: auto;
+  }
+  th, td {
+    padding: 8px 10px;
+    border: 1px solid var(--line);
+    font-size: .86rem;
+  }
+  tr:last-child th, tr:last-child td { border-bottom: 1px solid var(--line); }
+
+  .演示 {
+    margin: 16px 0 22px;
+    padding: 12px 14px 14px;
+    font-size: .8rem;
+    line-height: 1.8;
+  }
+  .演示::before { margin-bottom: 8px; padding-right: 60px; font-size: .7rem; }
+  .演示 .copy-btn { top: 8px; right: 8px; padding: 3px 10px; font-size: .72rem; }
+
+  img { margin: 10px 0; }
+
+  .back-top { right: 18px; bottom: 22px; width: 44px; height: 44px; font-size: 19px; }
+}
+
+/* 小屏再收紧一点 */
+@media (max-width: 400px) {
+  body { font-size: 14px; }
+  th, td { padding: 7px 8px; font-size: .8rem; }
 }
