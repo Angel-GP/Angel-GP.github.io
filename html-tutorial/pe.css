@@ -101,6 +101,8 @@ body.subnav-open .导航栏1 { display: inline-block; }
 }
 
 h1 {
+  display: block;
+  width: 100%;
   margin: 4px 0 6px;
   text-align: center;
   font-size: 1.9rem;
@@ -108,6 +110,7 @@ h1 {
   background: linear-gradient(90deg, #2563eb, #8b5cf6);
   -webkit-background-clip: text;
   background-clip: text;
+  -webkit-text-fill-color: transparent;
   color: transparent;
   user-select: none;
 }

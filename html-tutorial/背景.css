@@ -155,6 +155,7 @@ h1 {
   background: linear-gradient(90deg, var(--accent-deep), var(--purple));
   -webkit-background-clip: text;
   background-clip: text;
+  -webkit-text-fill-color: transparent;
   color: transparent;
   user-select: none;
 }
