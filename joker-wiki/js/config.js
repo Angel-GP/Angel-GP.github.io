@@ -1,14 +1,16 @@
 /* =========================================================
- * 站点配置 — 已配置为 Angel-GP/Angel-GP.github.io
- * Wiki 应用位于仓库 joker-wiki/ 子目录，内容位于 joker-wiki/wiki/
+ * 站点配置
+ * supabase.url / supabase.anonKey 需要在 Supabase 控制台创建项目后填入。
+ * anon key 是"公开密钥"，本来就设计为可暴露在前端页面中；
+ * 真正的数据安全由数据库的行级安全策略（RLS）在 Supabase 服务端保证。
  * ========================================================= */
 window.WIKI_CONFIG = {
-  owner: "Angel-GP",              // GitHub 用户名
-  repo: "Angel-GP.github.io",     // 仓库名
-  branch: "main",                 // 内容所在分支
-  wikiDir: "joker-wiki/wiki",     // 内容目录（仓库内的文件夹）
-  homePage: "Home",               // 首页路径（相对 wikiDir，不含 .md）
-  title: "Joker Wiki",           // 站点标题
+  supabase: {
+    url: "https://YOUR-PROJECT.supabase.co", // ← 填入你的 Supabase 项目 URL
+    anonKey: "YOUR-ANON-KEY"                 // ← 填入 Supabase 的 anon public key
+  },
+  homePage: "Home",   // 首页路径
+  title: "Joker Wiki",
   subtitle: "运行在 GitHub Pages 上的纯前端 Wiki",
-  logo: "🃏"                      // 侧边栏 logo（emoji 或文字）
+  logo: "🃏"
 };

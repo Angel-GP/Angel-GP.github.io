@@ -30,8 +30,7 @@
     <div class="side-footer">
       <button id="btn-refresh" class="icon-btn" title="刷新页面列表">⟳</button>
       <button id="btn-theme" class="icon-btn" title="切换深浅主题">🌙</button>
-      <button id="btn-settings" class="icon-btn" title="设置">⚙</button>
-      <span id="token-dot" class="dot" title="Token 状态"></span>
+      <div id="user-area"></div>
     </div>
   </aside>
   <main id="main">
@@ -48,6 +47,7 @@
 <div id="toast-root" class="toast-root"></div>
 <noscript><p style="padding:20px">此 Wiki 需要启用 JavaScript。</p></noscript>
 <script src="./lib/markdown-it.min.js"></script>
+<script src="./lib/supabase.min.js"></script>
 <script src="./js/config.js"></script>
 <script src="./js/api.js"></script>
 <script src="./js/markdown.js"></script>

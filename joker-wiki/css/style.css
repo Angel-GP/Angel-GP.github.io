@@ -109,9 +109,20 @@ body{
   display:flex;align-items:center;gap:6px;padding:10px 12px;
   border-top:1px solid var(--border);flex:none;
 }
-.dot{width:9px;height:9px;border-radius:50%;background:#b0b3b8;margin-left:auto;flex:none}
-.dot.ok{background:#2da44e}
-.dot.off{background:#cf222e}
+.user-chip{
+  display:inline-flex;align-items:center;gap:6px;margin-left:auto;
+  padding:5px 10px;border:1px solid var(--border);border-radius:8px;
+  background:transparent;color:var(--text);font-size:12.5px;cursor:pointer;
+  max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:none;
+}
+.user-chip:hover{border-color:var(--accent)}
+.user-chip.guest{color:var(--text2)}
+.auth-tabs{display:flex;gap:6px;margin-bottom:14px}
+.auth-tab{
+  flex:1;padding:8px;border:1px solid var(--border);border-radius:8px;
+  background:transparent;color:var(--text2);cursor:pointer;font-size:14px;font-family:inherit;
+}
+.auth-tab.active{background:var(--accent-soft);color:var(--accent-text);border-color:var(--accent);font-weight:600}
 
 /* ---------- 主区域 ---------- */
 #main{overflow-y:auto;display:flex;flex-direction:column;min-width:0;min-height:0}

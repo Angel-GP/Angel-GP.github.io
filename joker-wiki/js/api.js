@@ -1,113 +1,123 @@
 /* =========================================================
- * GitHub API 封装（纯前端，无服务器）
- * - 浏览内容走 raw.githubusercontent.com（CDN，无 API 限额）
- * - 列表 / 写入 / 历史走 api.github.com
+ * Supabase 数据层 + 认证（纯前端）
+ * - 页面内容存 Supabase PostgreSQL（pages / revisions 表）
+ * - 写入统一走 RPC（save_page / delete_page），由数据库 RLS 保证安全
+ * - 对外接口与原 GitHub 版保持一致（getIndex / readPage / savePage …）
  * ========================================================= */
 const API = (() => {
-  let settings = null;
-  let token = "";
-  const memCache = new Map(); // path@ref -> 内容
+  let sb = null;                 // Supabase 客户端
+  const memCache = new Map();    // path@latest -> 内容
 
-  function configure(s, t){ settings = s; token = t || ""; }
-
-  function headers(){
-    const h = { "Accept": "application/vnd.github+json", "X-GitHub-Api-Version": "2022-11-28" };
-    if (token) h.Authorization = "Bearer " + token;
-    return h;
+  function configure(settings){
+    const s = settings && settings.supabase;
+    if (window.supabase && s && s.url && s.anonKey &&
+        !/YOUR-PROJECT|YOUR-ANON/.test(s.url + s.anonKey)){
+      sb = window.supabase.createClient(s.url, s.anonKey);
+    } else {
+      sb = null;
+    }
+  }
+  function ready(){
+    if (!sb) throw new Error("Supabase 未配置：请先在 js/config.js 填入 supabase.url 与 supabase.anonKey，并推送更新");
+    return sb;
   }
 
-  const encSeg = (s) => String(s).split("/").map(encodeURIComponent).join("/");
-  const apiUrl = (p) => `https://api.github.com/repos/${encSeg(settings.owner)}/${encSeg(settings.repo)}${p}`;
-  const rawUrl = (path, ref) =>
-    `https://raw.githubusercontent.com/${encSeg(settings.owner)}/${encSeg(settings.repo)}/${encSeg(ref || settings.branch)}/${encSeg(settings.wikiDir)}/${encSeg(path)}.md`;
-  const filePath = (path) => `${settings.wikiDir}/${path}.md`;
-
-  async function fetchJson(url, opts, allow404){
-    const res = await fetch(url, opts);
-    if (res.ok) return res.json();
-    if (allow404 && res.status === 404) return null;
-    if (res.status === 401) throw new Error("GitHub Token 无效或无权限（需要本仓库 Contents 的读写权限）");
-    if (res.status === 403 || res.status === 429) throw new Error("GitHub API 请求受限：未配置 Token 时限额 60 次/小时，请在 ⚙ 设置中配置 Token");
-    throw new Error("请求失败：" + res.status + " " + res.statusText);
+  /* ---------- 认证 ---------- */
+  function onAuthChange(cb){
+    if (!sb) return { subscription: { unsubscribe(){} } };
+    return ready().auth.onAuthStateChange((event, session) => cb(session ? session.user : null, event));
+  }
+  async function getSession(){
+    if (!sb) return null;
+    const { data } = await ready().auth.getSession();
+    return data.session ? data.session.user : null;
+  }
+  async function signUp(email, password){
+    const { data, error } = await ready().auth.signUp({ email, password });
+    if (error) throw new Error(mapAuthError(error));
+    return { user: data.user, needsConfirm: !data.session };
+  }
+  async function signIn(email, password){
+    const { data, error } = await ready().auth.signInWithPassword({ email, password });
+    if (error) throw new Error(mapAuthError(error));
+    return data.user;
+  }
+  async function signOut(){
+    if (sb) await sb.auth.signOut();
+  }
+  function mapAuthError(e){
+    const m = e.message || "";
+    if (/Invalid login credentials/i.test(m)) return "邮箱或密码错误";
+    if (/User already registered/i.test(m)) return "该邮箱已注册，请切换到「登录」";
+    if (/at least \d+ characters/i.test(m)) return "密码至少 6 位";
+    if (/Email not confirmed/i.test(m)) return "邮箱尚未验证，请查收验证邮件";
+    if (/rate limit/i.test(m)) return "操作太频繁，请稍后再试";
+    return "认证失败：" + m;
   }
 
   /* ---------- 页面索引 ---------- */
   async function getIndex(){
-    try {
-      const data = await fetchJson(apiUrl(`/git/trees/${settings.branch}?recursive=1`), { headers: headers() });
-      return parseTree(data.tree);
-    } catch (e) {
-      if (e.message.includes("受限") || e.message.includes("Token")) throw e;
-      // 回退：jsDelivr 文件列表（无 sha，有 CDN 缓存延迟）
-      return parseTree(await jsdelivrList());
-    }
-  }
-  async function jsdelivrList(){
-    const url = `https://data.jsdelivr.com/v1/packages/gh/${encSeg(settings.owner)}/${encSeg(settings.repo)}@${encSeg(settings.branch)}?structure=flat`;
-    const data = await fetchJson(url, {});
-    return (data.files || []).map(f => ({ path: f.name, type: "blob" }));
-  }
-  function parseTree(tree){
-    const prefix = settings.wikiDir.replace(/\/+$/, "") + "/";
-    return (tree || [])
-      .filter(t => t.type === "blob" && t.path.startsWith(prefix) && t.path.toLowerCase().endsWith(".md"))
-      .map(t => ({ path: t.path.slice(prefix.length, -3), sha: t.sha || null }));
+    const { data, error } = await ready().from("pages").select("path");
+    if (error) throw new Error("读取页面列表失败：" + error.message);
+    return (data || []).map(p => ({ path: p.path, sha: null }));
   }
 
-  /* ---------- 读取页面（raw CDN，不走 API 限额） ---------- */
+  /* ---------- 读取页面 ---------- */
   async function readPage(path, ref){
-    const key = path + "@" + (ref || settings.branch);
+    if (ref){
+      // 历史版本：按 revision id 读取
+      const { data, error } = await ready()
+        .from("revisions").select("content").eq("path", path).eq("id", ref).maybeSingle();
+      if (error) throw new Error("读取历史版本失败：" + error.message);
+      if (!data) throw new Error("PAGE_NOT_FOUND");
+      return data.content;
+    }
+    const key = path + "@latest";
     if (memCache.has(key)) return memCache.get(key);
-    const res = await fetch(rawUrl(path, ref), { cache: "no-store" });
-    if (res.status === 404) throw new Error("PAGE_NOT_FOUND");
-    if (!res.ok) throw new Error("读取页面失败：" + res.status);
-    const text = await res.text();
-    memCache.set(key, text);
-    return text;
+    const { data, error } = await ready()
+      .from("pages").select("content").eq("path", path).maybeSingle();
+    if (error) throw new Error("读取页面失败：" + error.message);
+    if (!data) throw new Error("PAGE_NOT_FOUND");
+    memCache.set(key, data.content);
+    return data.content;
   }
-  function setCached(path, content, ref){
-    memCache.set(path + "@" + (ref || settings.branch), content);
+  function setCached(path, content){
+    memCache.set(path + "@latest", content);
   }
 
   /* ---------- 写入 ---------- */
-  function utf8ToBase64(str){
-    const bytes = new TextEncoder().encode(str);
-    let bin = "";
-    for (let i = 0; i < bytes.length; i++) bin += String.fromCharCode(bytes[i]);
-    return btoa(bin);
+  async function getSha(){ return null; } // Supabase 无需 sha（保留接口兼容）
+  async function savePage(path, content, message){
+    const { error } = await ready().rpc("save_page", { p_path: path, p_content: content, p_message: message || "" });
+    if (error) throw new Error("保存失败：" + error.message);
+    setCached(path, content);
+    return null;
   }
-  async function getSha(path){
-    const data = await fetchJson(
-      apiUrl(`/contents/${encodeURIComponent(filePath(path))}?ref=${encodeURIComponent(settings.branch)}`),
-      { headers: headers() }, true);
-    return data ? data.sha : null;
-  }
-  async function savePage(path, content, message, sha){
-    const body = { message, content: utf8ToBase64(content), branch: settings.branch };
-    if (sha) body.sha = sha;
-    const data = await fetchJson(apiUrl(`/contents/${encodeURIComponent(filePath(path))}`), {
-      method: "PUT", headers: headers(), body: JSON.stringify(body)
-    });
-    return data.content.sha;
-  }
-  async function deletePage(path, sha, message){
-    await fetchJson(apiUrl(`/contents/${encodeURIComponent(filePath(path))}`), {
-      method: "DELETE", headers: headers(), body: JSON.stringify({ message, sha, branch: settings.branch })
-    });
+  async function deletePage(path){
+    const { error } = await ready().rpc("delete_page", { p_path: path });
+    if (error) throw new Error("删除失败：" + error.message);
+    memCache.delete(path + "@latest");
   }
 
   /* ---------- 历史 ---------- */
   async function getHistory(path){
-    const data = await fetchJson(
-      apiUrl(`/commits?path=${encodeURIComponent(filePath(path))}&sha=${encodeURIComponent(settings.branch)}&per_page=30`),
-      { headers: headers() });
-    return data.map(c => ({
-      sha: c.sha,
-      message: c.commit.message,
-      date: c.commit.author.date,
-      author: c.commit.author.name
+    const { data, error } = await ready()
+      .from("revisions")
+      .select("id, message, author_name, created_at")
+      .eq("path", path)
+      .order("created_at", { ascending: false })
+      .limit(50);
+    if (error) throw new Error("读取历史失败：" + error.message);
+    return (data || []).map(r => ({
+      sha: String(r.id),
+      message: r.message,
+      date: r.created_at,
+      author: r.author_name || "未知"
     }));
   }
 
-  return { configure, getIndex, readPage, setCached, getSha, savePage, deletePage, getHistory };
+  return {
+    configure, onAuthChange, getSession, signUp, signIn, signOut,
+    getIndex, readPage, setCached, getSha, savePage, deletePage, getHistory
+  };
 })();

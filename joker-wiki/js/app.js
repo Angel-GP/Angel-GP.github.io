@@ -1,5 +1,5 @@
 /* =========================================================
- * Joker Wiki 主逻辑
+ * Joker Wiki 主逻辑（Supabase 版）
  * 路由（hash）：#/p/<页面路径>
  * ========================================================= */
 (() => {
@@ -12,17 +12,17 @@ const contentEl = $("content"), treeEl = $("page-tree"), tocEl = $("toc"),
   searchInput = $("search-input"), fulltextCheck = $("fulltext-check"),
   modalRoot = $("modal-root"), toastRoot = $("toast-root"),
   brandTitle = $("brand-title"), brandSub = $("brand-sub"),
-  brandLogo = document.querySelector(".brand-logo"), tokenDot = $("token-dot");
+  brandLogo = document.querySelector(".brand-logo"), userArea = $("user-area");
 
 /* ---------- 状态 ---------- */
 const state = {
   settings: Object.assign({}, window.WIKI_CONFIG || {}),
-  token: "",
+  user: null,        // Supabase 登录用户
   theme: "light",
   index: { pages: [], byPath: new Map(), byBase: new Map() },
   indexLoaded: false,
-  current: null,     // {path, content, sha}
-  historyRef: null,  // 正在查看的历史 sha
+  current: null,     // {path, content}
+  historyRef: null,  // 正在查看的历史版本 id
   viewMode: "view",  // view | edit
   editText: "",
   searching: false
@@ -55,8 +55,11 @@ function relTime(iso){
   if (d < 30) return d + " 天前";
   return fmtDate(iso);
 }
-const hasToken = () => !!state.token;
-const isPlaceholder = () => /YOUR_GITHUB_USERNAME/i.test(state.settings.owner);
+const isLoggedIn = () => !!state.user;
+const isPlaceholder = () => {
+  const s = state.settings.supabase || {};
+  return !s.url || !s.anonKey || /YOUR-PROJECT|YOUR-ANON/.test(s.url + s.anonKey);
+};
 
 /* ---------- 主题 ---------- */
 function applyTheme(){
@@ -65,32 +68,112 @@ function applyTheme(){
   $("btn-theme").textContent = state.theme === "dark" ? "☀️" : "🌙";
 }
 
-/* ---------- 配置 ---------- */
+/* ---------- 配置 / 认证 ---------- */
 function loadConfig(){
-  let ov = {};
-  try { ov = JSON.parse(localStorage.getItem("jw.settings") || "{}"); } catch (e) {}
-  state.settings = Object.assign({}, window.WIKI_CONFIG || {}, ov);
-  state.token = localStorage.getItem("jw.token") || "";
+  state.settings = Object.assign({}, window.WIKI_CONFIG || {});
   state.theme = localStorage.getItem("jw.theme") ||
     (window.matchMedia && matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
-  API.configure(state.settings, state.token);
+  API.configure(state.settings);
   brandTitle.textContent = state.settings.title || "Wiki";
   brandSub.textContent = state.settings.subtitle || "";
   brandLogo.textContent = state.settings.logo || "📓";
   document.title = state.settings.title || "Wiki";
-  tokenDot.className = "dot " + (hasToken() ? "ok" : "off");
-  tokenDot.title = hasToken() ? "Token 已配置（可编辑）" : "未配置 Token（只能浏览）";
+  // 恢复登录会话
+  API.onAuthChange((user) => { state.user = user; renderUserArea(); });
+  API.getSession().then((user) => { state.user = user; renderUserArea(); });
+}
+function renderUserArea(){
+  if (!userArea) return;
+  if (state.user){
+    userArea.innerHTML = `<button class="user-chip" id="btn-user" title="点击退出登录">👤 ${esc(state.user.email || "已登录")}</button>`;
+    $("btn-user").onclick = confirmLogout;
+  } else {
+    userArea.innerHTML = `<button class="user-chip guest" id="btn-user" title="登录后可编辑">👤 登录</button>`;
+    $("btn-user").onclick = () => openLogin();
+  }
+}
+function confirmLogout(){
+  if (!confirm("退出登录？")) return;
+  API.signOut().then(() => { state.user = null; renderUserArea(); toast("已退出登录"); });
+}
+
+/* ---------- 登录弹窗 ---------- */
+function openLogin(){
+  if (isPlaceholder()){
+    toast("Supabase 尚未配置，请联系管理员", "error");
+    return;
+  }
+  showModal(`<div class="modal"><div class="modal-head"><span>🔐 账号</span><button class="modal-close">✕</button></div>
+    <div class="modal-body">
+      <div class="auth-tabs">
+        <button id="tab-login" class="auth-tab active">登录</button>
+        <button id="tab-register" class="auth-tab">注册</button>
+      </div>
+      <label class="field"><span>邮箱</span><input id="au-email" type="email" required placeholder="you@example.com" autocomplete="email"></label>
+      <label class="field"><span>密码（至少 6 位）</span><input id="au-pass" type="password" required minlength="6" autocomplete="current-password"></label>
+      <label class="field" id="au-pass2-field" style="display:none"><span>确认密码</span><input id="au-pass2" type="password" minlength="6" autocomplete="new-password"></label>
+      <div class="hint" id="au-hint">注册即可编辑所有页面；每次保存会记录你的邮箱与时间。</div>
+    </div>
+    <div class="modal-foot"><button class="btn btn-primary" id="au-submit">登录</button></div></div>`);
+  let tab = "login";
+  const setTab = (t) => {
+    tab = t;
+    $("tab-login").classList.toggle("active", t === "login");
+    $("tab-register").classList.toggle("active", t === "register");
+    $("au-pass2-field").style.display = t === "register" ? "flex" : "none";
+    $("au-submit").textContent = t === "login" ? "登录" : "注册并登录";
+    $("au-hint").textContent = t === "login"
+      ? "登录后即可编辑所有页面。"
+      : "注册即可编辑所有页面；每次保存会记录你的邮箱与时间。";
+  };
+  $("tab-login").onclick = () => setTab("login");
+  $("tab-register").onclick = () => setTab("register");
+  $("au-pass2-field").style.display = "none";
+  $("au-pass").addEventListener("keydown", (e) => { if (e.key === "Enter") $("au-submit").click(); });
+  $("au-pass2").addEventListener("keydown", (e) => { if (e.key === "Enter") $("au-submit").click(); });
+  $("au-submit").onclick = async () => {
+    const email = $("au-email").value.trim();
+    const pass = $("au-pass").value;
+    if (!email || !pass) return toast("请填写邮箱和密码", "error");
+    if (tab === "register" && pass !== $("au-pass2").value) return toast("两次输入的密码不一致", "error");
+    const btn = $("au-submit");
+    btn.disabled = true; btn.textContent = "请稍候…";
+    try {
+      if (tab === "login"){
+        await API.signIn(email, pass);
+        closeModal();
+        toast("已登录 ✓");
+      } else {
+        const r = await API.signUp(email, pass);
+        closeModal();
+        if (r.needsConfirm) toast("注册成功！请查收验证邮件，验证后即可登录", "info");
+        else toast("注册成功，已自动登录 ✓");
+      }
+      renderUserArea();
+    } catch (e) {
+      btn.disabled = false;
+      btn.textContent = tab === "login" ? "登录" : "注册并登录";
+      toast(e.message, "error");
+    }
+  };
+  $("au-email").focus();
+}
+function requireLogin(){
+  if (isLoggedIn()) return true;
+  toast("请先登录", "info");
+  openLogin();
+  return false;
 }
 
 /* ---------- 页面索引 ---------- */
-function treeCacheKey(){ return `jw.tree.${state.settings.owner}/${state.settings.repo}/${state.settings.branch}`; }
+function treeCacheKey(){ return "jw.tree.supabase.v1"; }
 function readTreeCache(){
   try { return JSON.parse(localStorage.getItem(treeCacheKey()) || "null"); } catch (e) { return null; }
 }
 function saveTreeCache(){
   try {
     localStorage.setItem(treeCacheKey(), JSON.stringify({
-      pages: state.index.pages.map(p => ({ path: p.path, sha: p.sha })), at: Date.now()
+      pages: state.index.pages.map(p => ({ path: p.path })), at: Date.now()
     }));
   } catch (e) {}
 }
@@ -107,21 +190,15 @@ function setIndex(pages, loaded){
   if (loaded) state.indexLoaded = true;
   renderTree();
 }
-function indexSha(path){
-  const p = state.index.byPath.get(path);
-  return p && p.sha ? p.sha : null;
-}
-function upsertIndex(path, sha){
-  const p = state.index.byPath.get(path);
-  if (p) p.sha = sha;
-  else {
-    state.index.pages.push({ path, sha });
-    state.index.byPath.set(path, { path, sha });
+function upsertIndex(path){
+  if (!state.index.byPath.has(path)){
+    state.index.pages.push({ path });
+    state.index.byPath.set(path, { path });
     const base = path.split("/").pop().toLowerCase();
     if (!state.index.byBase.has(base)) state.index.byBase.set(base, []);
     state.index.byBase.get(base).push(path);
+    state.index.pages.sort((a, b) => a.path.localeCompare(b.path, "zh-CN"));
   }
-  state.index.pages.sort((a, b) => a.path.localeCompare(b.path, "zh-CN"));
   saveTreeCache(); renderTree();
 }
 function removeFromIndex(path){
@@ -179,7 +256,7 @@ function renderTree(){
   if (state.searching) return;
   const pages = state.index.pages;
   if (!pages.length){
-    treeEl.innerHTML = `<div class="tree-empty">${state.indexLoaded ? "wiki/ 目录下暂无 .md 页面" : "加载中…"}</div>`;
+    treeEl.innerHTML = `<div class="tree-empty">${state.indexLoaded ? "暂无页面，点上方「＋ 新建页面」开始" : "加载中…"}</div>`;
     return;
   }
   const roots = [], folders = new Map();
@@ -264,7 +341,7 @@ function route(){
   const raw = location.hash.replace(/^#\/?/, "");
   let h = raw;
   try { h = decodeURIComponent(raw); } catch (e) {}
-  if (!h){ showPage(state.settings.homePage); return; }
+  if (!h){ showPage(state.settings.homePage || "Home"); return; }
   const parts = h.split("/");
   if (parts[0] === "p" && parts.length > 1) showPage(parts.slice(1).join("/"));
   else showPage(h);
@@ -313,14 +390,14 @@ function renderHeader(){
         `<button class="btn btn-sm" id="btn-back-latest">← 返回最新版本</button>
          <button class="btn btn-sm btn-primary" id="btn-restore">恢复此版本到编辑器</button>`;
       $("btn-back-latest").onclick = () => showPage(p.path);
-      $("btn-restore").onclick = () => restoreFromHistory();
+      $("btn-restore").onclick = () => { if (requireLogin()) restoreFromHistory(); };
     } else {
       headerActions.innerHTML =
         `<button class="btn btn-sm btn-primary" id="btn-edit">✏️ 编辑</button>
          <button class="btn btn-sm" id="btn-history">🕘 历史</button>
          <button class="btn btn-sm" id="btn-backlinks">🔗 反向链接</button>
          <button class="btn btn-sm icon-only" id="btn-copy" title="复制本页链接">⧉</button>`;
-      $("btn-edit").onclick = startEdit;
+      $("btn-edit").onclick = () => { if (requireLogin()) startEdit(); };
       $("btn-history").onclick = () => openHistory();
       $("btn-backlinks").onclick = () => openBacklinks();
       $("btn-copy").onclick = copyLink;
@@ -333,9 +410,9 @@ function renderView(){
   const html = Render.render(state.current.content, state.current.path);
   let top = "";
   if (isPlaceholder()) top +=
-    `<div class="banner warn"><strong>尚未配置仓库：</strong>请编辑 <code>js/config.js</code>，把 <code>owner</code> 改成你的 GitHub 用户名、<code>repo</code> 改成仓库名后重新部署。</div>`;
+    `<div class="banner warn"><strong>Supabase 尚未配置：</strong>请在 <code>js/config.js</code> 填入 <code>supabase.url</code> 与 <code>supabase.anonKey</code>（详细步骤见 README），然后重新推送。</div>`;
   if (state.historyRef) top +=
-    `<div class="banner hist">📜 正在查看历史版本 <code>${esc(state.historyRef.slice(0, 7))}</code>（只读），点右上角可恢复。</div>`;
+    `<div class="banner hist">📜 正在查看历史版本 <code>#${esc(String(state.historyRef).slice(0, 7))}</code>（只读），点右上角可恢复。</div>`;
   contentEl.innerHTML = `<article class="markdown-body">${top}${html}</article>`;
   buildTOC();
 }
@@ -359,7 +436,7 @@ function renderNotFound(path){
       <a class="btn" href="#/">返回首页</a>
     </div>
   </div>`;
-  $("btn-create-missing").onclick = () => openNewPageModal(path);
+  $("btn-create-missing").onclick = () => { if (requireLogin()) openNewPageModal(path); };
 }
 function renderError(msg){
   contentEl.innerHTML = `<div class="empty-page">
@@ -382,7 +459,7 @@ function startEdit(initialText){
   state.editText = (initialText !== undefined) ? initialText : (state.current.content || "");
   renderHeader();
   contentEl.innerHTML = `<div class="editor">
-    <div class="editor-meta">${esc(state.current.path)}.md · <kbd>Ctrl</kbd>+<kbd>S</kbd> 保存</div>
+    <div class="editor-meta">${esc(state.current.path)} · <kbd>Ctrl</kbd>+<kbd>S</kbd> 保存 · 编辑者 ${esc(state.user ? state.user.email : "")}</div>
     <textarea id="editor-area" spellcheck="false" placeholder="在此输入 Markdown…">${esc(state.editText)}</textarea>
     <div id="editor-preview" class="markdown-body preview" style="display:none"></div>
     <div class="editor-actions">
@@ -424,17 +501,13 @@ function cancelEdit(){
 async function saveEdit(){
   const path = state.current.path;
   const content = state.editText;
-  if (!hasToken()){ toast("尚未配置 GitHub Token，无法保存", "error"); openSettings(); return; }
+  if (!isLoggedIn()){ toast("会话已失效，请重新登录", "error"); openLogin(); return; }
   const btn = $("btn-save");
   btn.disabled = true; btn.textContent = "保存中…";
   try {
-    let sha = state.current.sha || indexSha(path);
-    if (!sha) sha = await API.getSha(path);
-    const newSha = await API.savePage(path, content, "Update " + path + " via Joker Wiki", sha);
-    API.setCached(path, content);
-    state.current.sha = newSha;
+    await API.savePage(path, content, "更新 " + path);
     state.current.content = content;
-    upsertIndex(path, newSha);
+    upsertIndex(path);
     toast("已保存 ✓");
     window.removeEventListener("beforeunload", beforeUnload);
     state.viewMode = "view";
@@ -448,13 +521,10 @@ async function saveEdit(){
 }
 async function deleteCurrent(){
   const path = state.current.path;
-  if (!confirm(`确定删除页面「${path}」？将提交一次 Git 删除（可从历史恢复）。`)) return;
-  if (!hasToken()){ toast("尚未配置 GitHub Token", "error"); openSettings(); return; }
+  if (!isLoggedIn()){ toast("请先登录", "error"); openLogin(); return; }
+  if (!confirm(`确定删除页面「${path}」？其历史版本也会一并删除，且不可恢复。`)) return;
   try {
-    let sha = state.current.sha || indexSha(path);
-    if (!sha) sha = await API.getSha(path);
-    if (!sha) throw new Error("无法获取页面 sha");
-    await API.deletePage(path, sha, "Delete " + path + " via Joker Wiki");
+    await API.deletePage(path);
     removeFromIndex(path);
     window.removeEventListener("beforeunload", beforeUnload);
     toast("已删除");
@@ -468,24 +538,24 @@ async function openHistory(){
   const path = state.current.path;
   showModal(`<div class="modal"><div class="modal-head"><span>🕘 历史版本 — ${esc(path)}</span><button class="modal-close">✕</button></div>
     <div class="modal-body"><div class="loading"><div class="spinner"></div></div></div>
-    <div class="modal-foot hint">最近 30 次提交 · 每次保存 = 一次 Git 提交</div></div>`);
+    <div class="modal-foot hint">最近 50 次保存记录</div></div>`);
   try {
     const list = await API.getHistory(path);
     const body = document.querySelector(".modal-body");
     body.innerHTML = list.length ? list.map(c => `
       <div class="hist-item">
         <div class="hist-top">
-          <span class="hist-msg">${esc(c.message)}</span>
-          <span class="hist-sha">${esc(c.sha.slice(0, 7))}</span>
+          <span class="hist-msg">${esc(c.message || "（无备注）")}</span>
+          <span class="hist-sha">#${esc(String(c.sha).slice(0, 7))}</span>
         </div>
         <div class="hist-sub">${esc(c.author)} · ${relTime(c.date)}</div>
         <div class="hist-btns">
           <button class="btn btn-sm" data-view="${esc(c.sha)}">查看</button>
           <button class="btn btn-sm" data-restore="${esc(c.sha)}">恢复到编辑器</button>
         </div>
-      </div>`).join("") : `<div class="tree-empty">暂无提交记录</div>`;
+      </div>`).join("") : `<div class="tree-empty">暂无保存记录</div>`;
     body.querySelectorAll("[data-view]").forEach(b => b.onclick = () => { closeModal(); showPage(path, b.dataset.view); });
-    body.querySelectorAll("[data-restore]").forEach(b => b.onclick = () => { closeModal(); restoreFromHistory(b.dataset.restore); });
+    body.querySelectorAll("[data-restore]").forEach(b => b.onclick = () => { closeModal(); if (requireLogin()) restoreFromHistory(b.dataset.restore); });
   } catch (e) {
     document.querySelector(".modal-body").innerHTML = `<div class="error">${esc(e.message)}</div>`;
   }
@@ -547,14 +617,15 @@ async function openBacklinks(){
 
 /* ---------- 新建页面 ---------- */
 function openNewPageModal(prefill){
+  if (!requireLogin()) return;
   prefill = prefill || "";
   showModal(`<div class="modal"><div class="modal-head"><span>＋ 新建页面</span><button class="modal-close">✕</button></div>
     <div class="modal-body">
-      <label class="field"><span>页面路径（相对 ${esc(state.settings.wikiDir)}/，不含 .md）</span>
+      <label class="field"><span>页面路径（可用 / 分隔建层级，如 前端/React）</span>
         <input id="np-name" type="text" placeholder="例如：前端/React" value="${esc(prefill)}"></label>
       <label class="field"><span>初始内容（Markdown，可选）</span>
         <textarea id="np-content" rows="6" placeholder="可选"></textarea></label>
-      <div class="hint">用 <code>/</code> 分隔可创建子目录；保存 = 一次 Git 提交</div>
+      <div class="hint">创建人：${esc(state.user ? state.user.email : "")}；每次保存都会记录作者与时间</div>
     </div>
     <div class="modal-foot">
       <button class="btn btn-primary" id="np-create">创建</button>
@@ -572,14 +643,13 @@ function openNewPageModal(prefill){
     if (segs.some(s => !s || s === "." || s === ".." || /[\\:*?"<>|#]/.test(s)))
       return toast("页面路径包含非法字符", "error");
     if (state.index.byPath.has(name)) return toast("该页面已存在：" + name, "error");
-    if (!hasToken()){ toast("请先在 ⚙ 设置中配置 Token", "error"); openSettings(); return; }
+    if (!isLoggedIn()){ toast("会话已失效，请重新登录", "error"); openLogin(); return; }
     const btn = $("np-create");
     btn.disabled = true; btn.textContent = "创建中…";
     try {
       if (!content) content = `# ${name.split("/").pop()}\n\n`;
-      const newSha = await API.savePage(name, content, "Create " + name + " via Joker Wiki", null);
-      API.setCached(name, content);
-      upsertIndex(name, newSha);
+      await API.savePage(name, content, "创建 " + name);
+      upsertIndex(name);
       closeModal();
       toast("已创建 ✓");
       showPage(name);
@@ -587,54 +657,6 @@ function openNewPageModal(prefill){
       btn.disabled = false; btn.textContent = "创建";
       toast(e.message, "error");
     }
-  };
-}
-
-/* ---------- 设置 ---------- */
-function openSettings(){
-  const s = state.settings;
-  showModal(`<div class="modal"><div class="modal-head"><span>⚙ 设置</span><button class="modal-close">✕</button></div>
-    <div class="modal-body">
-      <label class="field"><span>GitHub Token（只保存在本浏览器，不离开你的设备）</span>
-        <input id="st-token" type="password" placeholder="github_pat_…" value="${esc(state.token)}" autocomplete="off">
-        <span class="hint">使用<b>细粒度 Token</b>：仅授权本仓库，权限选 <code>Contents: Read and write</code>，并设置过期时间。</span></label>
-      <div class="grid2">
-        <label class="field"><span>仓库所有者</span><input id="st-owner" value="${esc(s.owner)}"></label>
-        <label class="field"><span>仓库名</span><input id="st-repo" value="${esc(s.repo)}"></label>
-        <label class="field"><span>分支</span><input id="st-branch" value="${esc(s.branch)}"></label>
-        <label class="field"><span>内容目录</span><input id="st-wikidir" value="${esc(s.wikiDir)}"></label>
-      </div>
-      <label class="field"><span>首页路径（相对内容目录，不含 .md）</span><input id="st-home" value="${esc(s.homePage)}"></label>
-      <div class="hint">以上改动保存在本浏览器，覆盖 <code>js/config.js</code> 的默认值。</div>
-    </div>
-    <div class="modal-foot">
-      <button class="btn btn-primary" id="st-save">保存</button>
-      <button class="btn" id="st-cancel">取消</button>
-    </div></div>`);
-  $("st-cancel").onclick = closeModal;
-  $("st-save").onclick = () => {
-    const overrides = {
-      owner: $("st-owner").value.trim(),
-      repo: $("st-repo").value.trim(),
-      branch: $("st-branch").value.trim() || "main",
-      wikiDir: $("st-wikidir").value.trim() || "wiki",
-      homePage: $("st-home").value.trim() || "Home"
-    };
-    state.token = $("st-token").value.trim();
-    localStorage.setItem("jw.token", state.token);
-    localStorage.setItem("jw.settings", JSON.stringify(overrides));
-    state.settings = Object.assign({}, window.WIKI_CONFIG || {}, overrides);
-    API.configure(state.settings, state.token);
-    state.indexLoaded = false;
-    state.index = { pages: [], byPath: new Map(), byBase: new Map() };
-    renderTree();
-    closeModal();
-    tokenDot.className = "dot " + (hasToken() ? "ok" : "off");
-    tokenDot.title = hasToken() ? "Token 已配置（可编辑）" : "未配置 Token（只能浏览）";
-    brandTitle.textContent = state.settings.title || "Wiki";
-    toast("设置已保存");
-    if (state.current) showPage(state.current.path);
-    refreshTree();
   };
 }
 
@@ -664,7 +686,6 @@ function bindEvents(){
   $("btn-new").onclick = () => openNewPageModal();
   $("btn-refresh").onclick = () => refreshTree(true, true);
   $("btn-theme").onclick = () => { state.theme = state.theme === "dark" ? "light" : "dark"; applyTheme(); };
-  $("btn-settings").onclick = openSettings;
   $("btn-menu").onclick = () => document.body.classList.toggle("nav-open");
   searchInput.addEventListener("input", () => { if (!fulltextCheck.checked) handleSearch(); });
   searchInput.addEventListener("keydown", (e) => { if (e.key === "Enter"){ e.preventDefault(); handleSearch(); } });
@@ -680,9 +701,9 @@ function bindEvents(){
   document.addEventListener("keydown", (e) => { if (e.key === "Escape") closeModal(); });
 }
 function init(){
-  if (!window.markdownit){
+  if (!window.markdownit || !window.supabase){
     contentEl.innerHTML = `<div class="empty-page"><div class="empty-icon">⚠️</div>
-      <h2>markdown-it 加载失败</h2><p class="error">请确认 lib/markdown-it.min.js 文件存在。</p></div>`;
+      <h2>依赖库加载失败</h2><p class="error">请确认 lib/markdown-it.min.js 与 lib/supabase.min.js 文件存在。</p></div>`;
     return;
   }
   loadConfig();
