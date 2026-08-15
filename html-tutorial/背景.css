@@ -1,0 +1,433 @@
+/* ==========================================================================
+   背景.css —— Angel的HTML教程 · PC端样式
+   结构 / 表现 / 行为分离：本文件只负责"表现"
+   ========================================================================== */
+
+:root {
+  --accent: #3b82f6;
+  --accent-deep: #2563eb;
+  --accent-soft: rgba(59, 130, 246, .12);
+  --purple: #8b5cf6;
+  --sidebar-w: 224px;
+  --bg: #eef2f8;
+  --text: #1f2937;
+  --muted: #6b7280;
+  --line: #e5e9f2;
+  --code-bg: #0f172a;
+  --code-text: #e2e8f0;
+  --radius: 14px;
+  --mono: Consolas, "JetBrains Mono", "Courier New", monospace;
+}
+
+* { box-sizing: border-box; }
+
+html { scroll-behavior: smooth; }
+
+body {
+  margin: 0;
+  padding-left: var(--sidebar-w);   /* 给固定侧栏留位，让正文在剩余空间居中 */
+  font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", "Helvetica Neue", Arial, sans-serif;
+  font-size: 16px;
+  line-height: 1.8;
+  color: var(--text);
+  background:
+    radial-gradient(900px 520px at 88% -10%, rgba(59, 130, 246, .16), transparent 60%),
+    radial-gradient(720px 460px at -6% 34%, rgba(139, 92, 246, .12), transparent 60%),
+    var(--bg);
+  background-attachment: fixed;
+  -webkit-font-smoothing: antialiased;
+}
+
+::selection { background: rgba(59, 130, 246, .22); }
+
+/* ---------- 滚动条 ---------- */
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb {
+  background: #c3cbd8;
+  border-radius: 6px;
+  border: 2px solid transparent;
+  background-clip: content-box;
+}
+::-webkit-scrollbar-thumb:hover { background-color: #93a1b5; }
+
+/* ---------- 阅读进度条（教程.js 注入） ---------- */
+#reading-progress {
+  position: fixed; top: 0; left: 0;
+  height: 3px; width: 0;
+  z-index: 300;
+  background: linear-gradient(90deg, #3b82f6, #8b5cf6, #ec4899);
+  border-radius: 0 3px 3px 0;
+  box-shadow: 0 0 10px rgba(59, 130, 246, .55);
+}
+
+/* ---------- 返回顶部按钮（教程.js 注入） ---------- */
+.back-top {
+  position: fixed; right: 24px; bottom: 28px; z-index: 250;
+  width: 46px; height: 46px;
+  border: none; border-radius: 50%;
+  background: linear-gradient(135deg, #3b82f6, #8b5cf6);
+  color: #fff; font-size: 20px; line-height: 1;
+  cursor: pointer;
+  box-shadow: 0 10px 24px rgba(59, 130, 246, .42);
+  opacity: 0; transform: translateY(14px) scale(.9);
+  pointer-events: none;
+  transition: opacity .25s, transform .25s;
+}
+.back-top.show { opacity: 1; transform: none; pointer-events: auto; }
+.back-top:hover { transform: translateY(-3px); }
+
+/* ============ 侧边导航 ============ */
+.sidenav {
+  position: fixed; top: 0; bottom: 0; left: 0; z-index: 20;
+  width: var(--sidebar-w);
+  padding: 26px 14px 40px;
+  overflow-y: auto;
+  background: linear-gradient(180deg, #0f172a 0%, #1e293b 100%);
+  box-shadow: 4px 0 24px rgba(15, 23, 42, .18);
+  scrollbar-width: thin;
+  scrollbar-color: #475569 transparent;
+}
+
+.导航标题 {
+  margin: 0 0 20px;
+  text-align: center;
+  font-size: 1.05rem;
+  letter-spacing: 3px;
+  color: #f8fafc;
+  user-select: none;
+}
+.导航标题::after {
+  content: "";
+  display: block;
+  width: 44px; height: 3px;
+  margin: 10px auto 0;
+  border-radius: 2px;
+  background: linear-gradient(90deg, var(--accent), var(--purple));
+}
+
+.导航栏,
+.导航栏1 {
+  display: block;
+  padding: 9px 12px;
+  border-radius: 9px;
+  color: #cbd5e1;
+  text-decoration: none;
+  user-select: none;
+  transition: background .18s, color .18s, transform .18s;
+}
+.导航栏 { margin-bottom: 4px; font-size: .92rem; }
+.导航栏1 {
+  display: none;                      /* 默认折叠，由教程.js 展开 */
+  margin-bottom: 2px;
+  padding: 7px 12px 7px 28px;
+  font-size: .82rem;
+  color: #94a3b8;
+}
+body.subnav-open .导航栏1 { display: block; }
+
+.sidenav a:hover { background: rgba(255, 255, 255, .08); color: #fff; transform: translateX(3px); }
+.sidenav a.active {
+  background: linear-gradient(90deg, rgba(59, 130, 246, .3), rgba(59, 130, 246, .08));
+  color: #fff;
+  box-shadow: inset 3px 0 0 var(--accent);
+}
+
+/* ============ 正文 ============ */
+.main {
+  margin: 34px auto 96px;           /* 左右 auto：在侧栏右侧的空间里水平居中 */
+  max-width: 980px;
+  padding: 56px 64px 88px;
+  background: #fff;
+  border-radius: var(--radius);
+  box-shadow: 0 12px 40px rgba(15, 23, 42, .08);
+  animation: fade-up .5s ease both;
+}
+@keyframes fade-up {
+  from { opacity: 0; transform: translateY(14px); }
+}
+
+h1 {
+  margin: 0 0 8px;
+  text-align: center;
+  font-size: 2.3rem;
+  letter-spacing: 2px;
+  background: linear-gradient(90deg, var(--accent-deep), var(--purple));
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  color: transparent;
+  user-select: none;
+}
+
+h3.center {
+  margin: 0 0 6px;
+  text-align: center;
+  font-weight: 400;
+  font-size: .95rem;
+  color: var(--muted);
+  user-select: none;
+}
+
+/* 分隔线（隐藏原来的横线文字，用虚线 + 星号代替） */
+.分割线 {
+  position: relative;
+  margin: 46px 0;
+  border: 0;
+  border-top: 1px dashed #d8dfe9;
+  font-size: 0;
+  user-select: none;
+}
+.分割线::after {
+  content: "✦";
+  position: absolute; top: -11px; left: 50%;
+  transform: translateX(-50%);
+  padding: 0 12px;
+  background: #fff;
+  font-size: 12px;
+  color: #c3cbdb;
+}
+
+h2 {
+  margin: 10px 0 18px;
+  padding-left: 14px;
+  border-left: 5px solid var(--accent);
+  font-size: 1.55rem;
+  line-height: 1.4;
+}
+h2::after {
+  content: "";
+  display: block;
+  height: 1px;
+  margin-top: 10px;
+  background: linear-gradient(90deg, var(--line), transparent);
+}
+h2[id], h4[id] { scroll-margin-top: 30px; }
+
+h4 { margin: 30px 0 12px; font-size: 1.12rem; color: #111827; }
+
+/* 带锚点的子标题：胶囊样式 */
+h4[id] {
+  display: inline-block;
+  padding: 4px 16px;
+  border-radius: 999px;
+  background: var(--accent-soft);
+  color: var(--accent-deep);
+  font-weight: 600;
+  font-size: 1.02rem;
+}
+
+/* 无锚点的小标题 */
+h4:not([id])::before { content: "# "; color: var(--accent); }
+
+p { margin: 10px 0; }
+
+/* ---------- 列表 ---------- */
+ol, ul { padding-left: 1.6em; }
+li { margin: 6px 0; }
+li::marker { color: var(--accent); }
+
+/* ---------- 链接 ---------- */
+.链接 {
+  color: var(--accent-deep);
+  text-decoration: none;
+  font-weight: 600;
+  border-bottom: 1px dashed rgba(37, 99, 235, .45);
+  transition: color .15s, border-color .15s;
+}
+.链接:hover { color: #1d4ed8; border-bottom-style: solid; }
+
+/* ---------- 表格 ---------- */
+table {
+  width: 100%;
+  margin: 18px 0 28px;
+  border: 1px solid var(--line);
+  border-collapse: separate;
+  border-spacing: 0;
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 4px 16px rgba(15, 23, 42, .05);
+}
+th, td {
+  padding: 11px 16px;
+  border: 0;
+  border-bottom: 1px solid var(--line);
+  text-align: center;
+  vertical-align: middle;
+}
+tr:last-child th, tr:last-child td { border-bottom: 0; }
+th { background: #f1f5fb; color: #334155; font-weight: 600; }
+tr:nth-child(even) td { background: #fafbfe; }
+tr:hover td { background: #f3f7ff; }
+td.bg {
+  background: var(--code-bg);
+  color: var(--code-text);
+  font-family: var(--mono);
+  font-size: .9rem;
+  text-align: left;
+}
+
+/* ---------- 代码示例框 ---------- */
+.演示 {
+  position: relative;
+  margin: 22px 0 28px;
+  padding: 14px 18px 16px;
+  overflow-x: auto;
+  background: var(--code-bg);
+  color: var(--code-text);
+  border-radius: 12px;
+  font-family: var(--mono);
+  font-size: .92rem;
+  line-height: 1.9;
+  text-align: left;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .06), 0 10px 26px rgba(15, 23, 42, .2);
+}
+.演示::before {
+  content: "代码示例";
+  display: block;
+  margin-bottom: 10px;
+  padding-right: 70px;
+  font-size: .76rem;
+  letter-spacing: 1px;
+  color: #64748b;
+}
+.演示:has(ul)::before { content: "要点提示"; }
+.演示 p, .演示 ul { margin: 0; }
+.演示 ul { padding-left: 1.4em; }
+.演示 li::marker { color: #38bdf8; }
+
+/* 复制按钮（教程.js 注入） */
+.演示 .copy-btn {
+  position: absolute; top: 10px; right: 10px;
+  padding: 4px 12px;
+  border: 1px solid rgba(255, 255, 255, .18);
+  border-radius: 7px;
+  background: rgba(255, 255, 255, .08);
+  color: #cbd5e1;
+  font-size: .78rem;
+  font-family: inherit;
+  cursor: pointer;
+  transition: background .15s, color .15s;
+}
+.演示 .copy-btn:hover { background: rgba(255, 255, 255, .16); color: #fff; }
+
+/* ---------- 图片 ---------- */
+img {
+  max-width: 100%;
+  margin: 12px 0;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  box-shadow: 0 8px 22px rgba(15, 23, 42, .1);
+}
+
+/* ============ 响应式（≤960px 切换为手机布局：侧栏变顶部固定导航） ============ */
+@media (max-width: 960px) {
+  body { font-size: 15px; padding-left: 0; }
+
+  .sidenav {
+    position: fixed;
+    top: 0; left: 0; right: 0; bottom: auto;
+    width: auto;                      /* 覆盖桌面端的 224px 固定宽度，横向铺满 */
+    height: 50px;
+    display: flex;
+    align-items: center;
+    gap: 2px;
+    padding: 0 8px;
+    overflow-x: auto;
+    overflow-y: hidden;
+    background: #0f172a;
+    box-shadow: 0 2px 14px rgba(15, 23, 42, .3);
+    scrollbar-width: none;
+  }
+  .sidenav::-webkit-scrollbar { display: none; }
+
+  .导航标题 { display: none; }
+
+  .导航栏,
+  .导航栏1 {
+    flex: 0 0 auto;
+    display: inline-block;
+    white-space: nowrap;
+    padding: 7px 11px;
+    margin: 0;
+    border-radius: 8px;
+    font-size: .82rem;
+  }
+  .导航栏 { font-weight: 600; }
+  body .sidenav .导航栏1 {
+    display: none;
+    margin-left: 2px;
+    padding: 7px 11px;                /* 覆盖桌面端左侧 28px 缩进 */
+    font-size: .75rem;
+    color: #94a3b8;
+    background: rgba(255, 255, 255, .06);
+  }
+  body.subnav-open .sidenav .导航栏1 { display: inline-block; }
+
+  .sidenav a:hover { transform: none; }
+
+  .main {
+    margin: 0 auto;
+    max-width: 760px;
+    padding: 68px 14px 90px;
+    background: transparent;
+    border-radius: 0;
+    box-shadow: none;
+    animation: none;
+  }
+
+  h1 { font-size: 1.9rem; }
+  h3.center { font-size: .85rem; }
+
+  .分割线 { margin: 34px 0; }
+  .分割线::after { background: #eef2f8; }
+
+  h2 {
+    margin: 26px 0 14px;
+    padding-left: 10px;
+    border-left: 4px solid var(--accent);
+    font-size: 1.3rem;
+  }
+  h2[id], h4[id] { scroll-margin-top: 62px; }
+
+  h4 { margin: 24px 0 10px; font-size: 1.05rem; }
+  h4[id] { padding: 3px 13px; font-size: .95rem; }
+
+  p { margin: 8px 0; }
+
+  /* 表格：过宽时横向滚动 */
+  table {
+    display: block;
+    max-width: 100%;
+    margin: 14px auto 22px;
+    border: 1px solid var(--line);
+    border-radius: 0;
+    box-shadow: none;
+    overflow-x: auto;
+  }
+  th, td {
+    padding: 8px 10px;
+    border: 1px solid var(--line);
+    font-size: .86rem;
+  }
+  tr:last-child th, tr:last-child td { border-bottom: 1px solid var(--line); }
+
+  .演示 {
+    margin: 16px 0 22px;
+    padding: 12px 14px 14px;
+    font-size: .8rem;
+    line-height: 1.8;
+  }
+  .演示::before { margin-bottom: 8px; padding-right: 60px; font-size: .7rem; }
+  .演示 .copy-btn { top: 8px; right: 8px; padding: 3px 10px; font-size: .72rem; }
+
+  img { margin: 10px 0; }
+
+  .back-top { right: 18px; bottom: 22px; width: 44px; height: 44px; font-size: 19px; }
+}
+
+/* 小屏再收紧一点 */
+@media (max-width: 400px) {
+  body { font-size: 14px; }
+  th, td { padding: 7px 8px; font-size: .8rem; }
+}

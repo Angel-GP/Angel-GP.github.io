@@ -1,0 +1,1520 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>🛸 FPV 穿越机模拟 · FPV DRONE SIM</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body {
+    width: 100%; height: 100%;
+    overflow: hidden;
+    background: #000;
+    font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+    touch-action: none;
+    -webkit-user-select: none;
+    user-select: none;
+  }
+  canvas { display: block; }
+
+  .overlay {
+    position: fixed; inset: 0;
+    display: flex; align-items: center; justify-content: center;
+    background: rgba(5, 10, 18, .78);
+    backdrop-filter: blur(6px);
+    z-index: 10;
+    color: #dbe4f0;
+  }
+  .overlay.hidden { display: none; }
+
+  .panel {
+    width: min(92vw, 640px);
+    max-height: 92vh;
+    overflow-y: auto;
+    background: linear-gradient(180deg, #141c2b, #0d1420);
+    border: 1px solid #2c3a52;
+    border-radius: 16px;
+    padding: 30px 34px;
+    box-shadow: 0 24px 70px rgba(0,0,0,.6);
+  }
+  .panel h1 { font-size: 1.7rem; text-align: center; letter-spacing: 2px; margin-bottom: 4px; }
+  .panel .sub { text-align: center; color: #7d8aa5; font-size: .85rem; margin-bottom: 20px; }
+  .keys { display: grid; grid-template-columns: 1fr 1fr; gap: 8px 22px; font-size: .88rem; }
+  .keys div { display: flex; justify-content: space-between; gap: 10px; padding: 6px 2px; border-bottom: 1px dashed #243247; }
+  .keys b { color: #ffd166; font-family: Consolas, monospace; font-weight: 600; white-space: nowrap; }
+  .tips { margin-top: 16px; font-size: .8rem; color: #8fa0bd; line-height: 1.8; }
+  .tips li { margin-left: 18px; }
+  #startBtn {
+    display: block; margin: 22px auto 0;
+    font: inherit; font-size: 1.05rem; font-weight: 700;
+    color: #06230f;
+    background: linear-gradient(180deg, #5eea95, #2fbf63);
+    border: none; border-radius: 999px;
+    padding: 13px 46px; cursor: pointer;
+    box-shadow: 0 8px 24px rgba(47,191,99,.35);
+    transition: transform .12s;
+  }
+  #startBtn:hover { transform: translateY(-2px); }
+
+  #crashTitle { color: #ff5252; font-size: 2rem; text-align: center; letter-spacing: 4px; }
+  #crashInfo { text-align: center; color: #aebbd2; margin-top: 10px; font-size: .95rem; line-height: 1.9; }
+  #crashBtn {
+    display: block; margin: 24px auto 0;
+    font: inherit; font-size: 1rem; font-weight: 700;
+    color: #fff; background: linear-gradient(180deg, #4a9eff, #2f6fd6);
+    border: none; border-radius: 999px; padding: 12px 40px; cursor: pointer;
+  }
+
+  #hint {
+    position: fixed; top: 12px; left: 50%; transform: translateX(-50%);
+    color: rgba(255,255,255,.75); font-size: .8rem; z-index: 5;
+    text-shadow: 0 1px 4px #000; pointer-events: none; white-space: nowrap;
+  }
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div id="hint"></div>
+
+<div class="overlay" id="startOverlay">
+  <div class="panel">
+    <h1>🛸 FPV 穿越机模拟</h1>
+    <div class="sub">FPV DRONE SIM · Acro 手动模式 · 建议使用键盘 + 鼠标</div>
+    <div class="keys">
+      <div><span>油门 升 / 降（左手摇杆）</span><b>W / S</b></div>
+      <div><span>偏航 左 / 右（左手摇杆）</span><b>A / D</b></div>
+      <div><span>俯仰 前 / 后（右手摇杆）</span><b>↑ / ↓</b></div>
+      <div><span>滚转 左 / 右（右手摇杆）</span><b>← / →</b></div>
+      <div><span>鼠标拖动 = 俯仰 + 滚转</span><b>🖱 拖拽</b></div>
+      <div><span>鼠标滚轮 = 油门</span><b>🖱 滚轮</b></div>
+      <div><span>镜头仰角 调节（15°~40°）</span><b>Q / E</b></div>
+      <div><span>切换第一 / 第三人称</span><b>V</b></div>
+      <div><span>暂停 / 重启 / OSD 开关</span><b>P / R / H</b></div>
+    </div>
+    <ul class="tips">
+      <li>Acro 手动模式：松杆后姿态保持、不会自动回平，穿越机不会自己悬停</li>
+      <li>起飞：按住 W 推油门（悬停油门约 58%），用鼠标或方向键持续修正姿态</li>
+      <li>FPV 镜头默认 20° 仰角：前飞时视线朝前上方，速度越快越明显</li>
+      <li>任务：穿过四座红白拱门（绕停机坪一圈），回到起降点降落</li>
+    </ul>
+    <button id="startBtn">解锁穿越机 · 起飞</button>
+  </div>
+</div>
+
+<div class="overlay hidden" id="crashOverlay">
+  <div class="panel">
+    <div id="crashTitle">💥 炸机</div>
+    <div id="crashInfo"></div>
+    <button id="crashBtn">重新起飞（R）</button>
+  </div>
+</div>
+
+<script>
+"use strict";
+/* ==================================================================
+   FPV 穿越机模拟 · 单文件实现
+   飞行模型：Acro 手动模式（角速度控制 / 姿态不回中 / 油门直控推力）
+   渲染：Canvas 2D 伪 3D 投影（地形 + 赛道 + 四轴模型 + Betaflight 风格 OSD）
+   ================================================================== */
+
+/* ---------------- 画布 ---------------- */
+const canvas = document.getElementById("c");
+const ctx = canvas.getContext("2d");
+let W = 0, H = 0, DPR = 1;
+function resize() {
+  DPR = Math.min(window.devicePixelRatio || 1, 1.25);
+  W = window.innerWidth; H = window.innerHeight;
+  canvas.width = Math.round(W * DPR);
+  canvas.height = Math.round(H * DPR);
+  canvas.style.width = W + "px";
+  canvas.style.height = H + "px";
+  ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+}
+window.addEventListener("resize", resize);
+resize();
+
+/* ---------------- 工具 ---------------- */
+const clamp = (v, a, b) => v < a ? a : (v > b ? b : v);
+const lerp = (a, b, t) => a + (b - a) * t;
+function mulberry32(seed) {
+  let s = seed >>> 0;
+  return function () {
+    s |= 0; s = (s + 0x6D2B79F5) | 0;
+    let t = Math.imul(s ^ (s >>> 15), 1 | s);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+const TAU = Math.PI * 2;
+const DEG = Math.PI / 180;
+
+/* ---------------- 世界 ---------------- */
+const WORLD = { N: 72, STEP: 16, SIZE: 72 * 16 };   // 1152m 见方
+const WATER = 6;                                     // 水面海拔
+const PAD = { x: 576, z: 576, r: 12, h: 12 };        // 停机坪
+const LAKE = { x: 340, z: 780, rx: 52, rz: 30 };     // 湖泊（椭圆）
+const WIND = { x: 1.6, z: 1.1 };                     // 世界风（m/s，影响飞行与风向袋）
+const SUN_AZ = -0.9, SUN_EL = 0.55;                  // 太阳方位角/仰角
+const SUN_DIR = (() => {
+  const v = [Math.sin(SUN_AZ), SUN_EL, -Math.cos(SUN_AZ)];
+  const l = Math.hypot(v[0], v[1], v[2]);
+  return [v[0] / l, v[1] / l, v[2] / l];
+})();
+const HANGAR = { x: 532, z: 592, w: 26, d: 16, h: 9.5 };   // 机库（停机坪西侧）
+const WINDSOCK = { x: 604, z: 578 };                       // 风向袋位置
+
+// 视角系统：1=第一人称（FPV） 2=第三人称（追尾）
+let viewMode = 1, viewBlend = 1;                    // blend: 0=第三人称, 1=第一人称；穿越机默认 FPV
+let camPitch = 0, camRoll = 0, camYaw = 0;
+const camPos = { x: 0, y: 0, z: 0 };
+
+function terrainH(x, z) {
+  let h = 0;
+  h += 55 * Math.sin(x * 0.011 + 1.7) * Math.cos(z * 0.009 - 0.6);
+  h += 28 * Math.sin(x * 0.031 - 2.1) * Math.cos(z * 0.027 + 1.3);
+  h += 14 * Math.sin(x * 0.067 + 0.4) * Math.cos(z * 0.073 - 1.1);
+  h += 6 * Math.sin(x * 0.13 - 0.8) * Math.cos(z * 0.15 + 2.3);
+  h += 3 * Math.sin(x * 0.27 + 2.9) * Math.cos(z * 0.23 - 0.4);
+  h += 1.4 * Math.sin(x * 0.53 + 1.2) * Math.cos(z * 0.47 - 2.6);   // 高频细节层
+  // 湖泊洼地
+  const dx = (x - LAKE.x) / LAKE.rx, dz = (z - LAKE.z) / LAKE.rz;
+  const d = Math.hypot(dx, dz);
+  if (d < 1) h -= (1 - d) * 46;
+  h = Math.max(h, 2);
+  // 停机坪压平
+  const px = x - PAD.x, pz = z - PAD.z;
+  if (px * px + pz * pz < PAD.r * PAD.r) h = PAD.h;
+  return h + 10;
+}
+
+// 高度图查表缓存（8m 网格，渲染时免三角函数计算）
+const HG = [];
+{
+  const N = WORLD.SIZE / 8 + 1;
+  for (let i = 0; i < N; i++) {
+    const row = new Float32Array(N);
+    for (let j = 0; j < N; j++) row[j] = terrainH(i * 8, j * 8);
+    HG.push(row);
+  }
+}
+// 渲染网格步长（帧率自适应：8m 精细 / 16m 流畅）
+let perfStep = 8, perfAvg = 0.016, perfHigh = 0, perfLow = 0;
+
+// 高度图颜色（按高度与坡度）
+function groundColor(h, slope) {
+  if (h <= WATER + 0.01) return [40, 92, 138];                    // 水面
+  if (h < WATER + 1.5) return [150, 164, 118];                    // 沙滩
+  let r, g, b;
+  if (h < 30) { r = 74; g = 124; b = 66; }                        // 草地
+  else if (h < 55) { r = 96; g = 118; b = 66; }                   // 丘陵
+  else if (h < 85) { r = 122, g = 108, b = 82; }                  // 岩石
+  else { r = 168; g = 172; b = 178; }                             // 积雪
+  const s = clamp(slope * 0.35, 0, 1);
+  r = r * (1 - s * .25); g = g * (1 - s * .25); b = b * (1 - s * .15);
+  return [r, g, b];
+}
+
+// 确定性随机物体
+const RNG = mulberry32(20240814);
+const TREE_TINTS = [[52, 96, 52], [58, 104, 56], [46, 88, 48], [68, 108, 54]];
+const BUILD_TINTS = [[150, 156, 164], [172, 158, 146], [158, 122, 112], [140, 150, 162]];
+const TREES = [], BUILDS = [];
+for (let i = 0; i < 110; i++) {
+  const x = RNG() * WORLD.SIZE, z = RNG() * WORLD.SIZE;
+  if (Math.hypot(x - PAD.x, z - PAD.z) < 30) continue;
+  if (Math.hypot((x - LAKE.x) / LAKE.rx, (z - LAKE.z) / LAKE.rz) < 1.15) continue;
+  TREES.push({ x, z, h: 5 + RNG() * 8, s: .8 + RNG() * .5, tint: TREE_TINTS[(RNG() * TREE_TINTS.length) | 0] });
+}
+for (let i = 0; i < 18; i++) {
+  const x = 160 + RNG() * (WORLD.SIZE - 320), z = 160 + RNG() * (WORLD.SIZE - 320);
+  if (Math.hypot(x - PAD.x, z - PAD.z) < 60) continue;
+  BUILDS.push({ x, z, w: 14 + RNG() * 16, d: 10 + RNG() * 12, h: 10 + RNG() * 26, tint: BUILD_TINTS[(RNG() * BUILD_TINTS.length) | 0] });
+}
+// 穿越机公园：拱门赛道（绕停机坪 4 门）、岩石、灌木、赛道旗、灯柱、轮胎堆
+const GATES = [
+  { x: PAD.x, z: PAD.z - 70, span: 8, h: 5 },
+  { x: PAD.x + 70, z: PAD.z, span: 8, h: 5 },
+  { x: PAD.x, z: PAD.z + 70, span: 8, h: 5 },
+  { x: PAD.x - 70, z: PAD.z, span: 8, h: 5 },
+];
+const ROCKS = [], BUSHES = [], FLAGS = [], LAMPS = [];
+for (let i = 0; i < 36; i++) {
+  const x = RNG() * WORLD.SIZE, z = RNG() * WORLD.SIZE;
+  if (Math.hypot(x - PAD.x, z - PAD.z) < 45) continue;
+  ROCKS.push({ x, z, r: .8 + RNG() * 1.9, h: .8 + RNG() * 1.5, seed: RNG() * TAU });
+}
+for (let i = 0; i < 75; i++) {
+  const x = RNG() * WORLD.SIZE, z = RNG() * WORLD.SIZE;
+  if (Math.hypot(x - PAD.x, z - PAD.z) < 25) continue;
+  if (Math.hypot((x - LAKE.x) / LAKE.rx, (z - LAKE.z) / LAKE.rz) < 1.1) continue;
+  BUSHES.push({ x, z, r: .6 + RNG() * 1.2, tint: TREE_TINTS[(RNG() * TREE_TINTS.length) | 0] });
+}
+for (let i = 0; i < 10; i++) {
+  const a = i / 10 * TAU + .3;
+  FLAGS.push({ x: PAD.x + Math.cos(a) * 46, z: PAD.z + Math.sin(a) * 46, col: i % 2 ? [255, 190, 60] : [235, 80, 60] });
+}
+// 赛道灯柱（内圈 8 根）
+for (let i = 0; i < 8; i++) {
+  const a = i / 8 * TAU + .12;
+  LAMPS.push({ x: PAD.x + Math.cos(a) * 32, z: PAD.z + Math.sin(a) * 32 });
+}
+// 轮胎堆障碍（赛道外 3 组）
+const TIRE_PILES = [
+  { x: PAD.x + 62, z: PAD.z + 18 }, { x: PAD.x - 56, z: PAD.z - 26 }, { x: PAD.x + 20, z: PAD.z - 62 }
+];
+const CLOUDS = [];
+for (let i = 0; i < 9; i++) {
+  CLOUDS.push({ x: RNG() * WORLD.SIZE, z: RNG() * WORLD.SIZE, y: 180 + RNG() * 120, s: 40 + RNG() * 70 });
+}
+
+/* ---------------- 输入（穿越机双摇杆：左=油门+偏航，右=俯仰+滚转） ---------------- */
+const input = { thr: 0, thrT: 0, rl: 0, pt: 0, yw: 0 };
+const keyState = {};
+const KEYMAP = {
+  w: ["thr", 1], s: ["thr", -1],
+  a: ["yw", 1], d: ["yw", -1],
+  arrowup: ["pt", 1], arrowdown: ["pt", -1],   // ↓ 低头（前飞）
+  arrowleft: ["rl", -1], arrowright: ["rl", 1],
+};
+window.addEventListener("keydown", (e) => {
+  const k = e.key.toLowerCase();
+  if (["arrowup", "arrowdown", "arrowleft", "arrowright", " "].includes(k)) e.preventDefault();
+  if (k === "r") { restart(); return; }
+  if (k === "p") { togglePause(); return; }
+  if (k === "h") { showPanel = !showPanel; return; }
+  if (k === "v") { viewMode = viewMode === 1 ? 2 : 1; setHint(viewMode === 1 ? "FPV 第一人称（V 切换）" : "第三人称（V 切换）"); return; }
+  if (k === "q") { drone.uptilt = clamp(drone.uptilt + .03, .26, .7); return; }   // 镜头仰角增大
+  if (k === "e") { drone.uptilt = clamp(drone.uptilt - .03, .26, .7); return; }   // 镜头仰角减小
+  if (KEYMAP[k]) keyState[k] = true;
+});
+window.addEventListener("keyup", (e) => { keyState[e.key.toLowerCase()] = false; });
+
+// 鼠标：按下 = 右手摇杆中心，拖动 = 俯仰/滚转；滚轮 = 油门
+let mouseStick = null;
+const STICK_R = 90;   // 摇杆半径 px
+canvas.addEventListener("mousedown", (e) => { mouseStick = { x: e.clientX, y: e.clientY }; });
+window.addEventListener("mouseup", () => { mouseStick = null; input.rl = 0; input.pt = 0; });
+window.addEventListener("mousemove", (e) => {
+  if (!mouseStick) return;
+  input.rl = clamp((e.clientX - mouseStick.x) / STICK_R, -1, 1);
+  input.pt = clamp(-(e.clientY - mouseStick.y) / STICK_R, -1, 1);   // 上推 = 低头前飞
+});
+canvas.addEventListener("wheel", (e) => {
+  e.preventDefault();
+  input.thrT = clamp(input.thrT - e.deltaY * 0.0006, 0, 1);
+}, { passive: false });
+
+// 触屏：左半屏 = 右摇杆（俯仰/滚转），右半屏 = 左摇杆（油门/偏航）
+let touchL = null, touchR = null;
+canvas.addEventListener("touchstart", (e) => {
+  for (const t of e.changedTouches) {
+    if (t.clientX < W / 2) touchL = { id: t.identifier, x: t.clientX, y: t.clientY };
+    else touchR = { id: t.identifier, x: t.clientX, y: t.clientY };
+  }
+  e.preventDefault();
+}, { passive: false });
+canvas.addEventListener("touchmove", (e) => {
+  for (const t of e.changedTouches) {
+    if (touchL && t.identifier === touchL.id) {
+      input.rl = clamp((t.clientX - touchL.x) / 70, -1, 1);
+      input.pt = clamp(-(t.clientY - touchL.y) / 70, -1, 1);
+    } else if (touchR && t.identifier === touchR.id) {
+      input.thrT = clamp(.5 - (t.clientY - touchR.y) / 140, 0, 1);
+      input.yw = clamp((t.clientX - touchR.x) / 70, -1, 1);
+    }
+  }
+  e.preventDefault();
+}, { passive: false });
+canvas.addEventListener("touchend", (e) => {
+  for (const t of e.changedTouches) {
+    if (touchL && t.identifier === touchL.id) { touchL = null; input.rl = 0; input.pt = 0; }
+    if (touchR && t.identifier === touchR.id) { touchR = null; input.yw = 0; }
+  }
+});
+
+/* ---------------- 飞行物理（FPV 穿越机 · Acro 手动模式） ---------------- */
+const G = 9.81, M = 0.65;                    // 穿越机质量 650g
+const TWR = 3.0;                             // 推重比（穿越机典型 3~10）
+const T_MAX = M * G * TWR;                   // 最大推力
+const MAX_RATE_PR = 4.6;                     // 俯仰/滚转最大角速度 rad/s（≈264°/s）
+const MAX_RATE_YAW = 3.2;                    // 偏航最大角速度
+const RATE_RESP = 9;                         // 角速度响应系数
+const VNE = 38;                              // 最大空速 m/s
+const HOVER_THR = Math.sqrt(1 / TWR);        // 悬停油门 ≈ 0.577
+
+const drone = {
+  x: PAD.x, y: PAD.h + 0.5, z: PAD.z,
+  vx: 0, vy: 0, vz: 0,
+  yaw: 0, pitch: 0, roll: 0,                    // 姿态角（Acro：松杆不回中）
+  rateYaw: 0, ratePitch: 0, rateRoll: 0,        // 角速度
+  throttle: 0,
+  uptilt: 0.35,                                 // FPV 镜头仰角 rad（20°）
+  crashed: false, crashT: 0,
+  totalTime: 0,
+  bat: 16.8,                                    // 4S 电池电压模拟
+  lowBat: false,
+  overSpeed: false,
+};
+
+function restart() {
+  drone.x = PAD.x; drone.y = PAD.h + 0.5; drone.z = PAD.z;
+  drone.vx = drone.vy = drone.vz = 0;
+  drone.yaw = 0; drone.pitch = 0; drone.roll = 0;
+  drone.rateYaw = drone.ratePitch = drone.rateRoll = 0;
+  drone.throttle = 0;
+  input.thr = input.thrT = 0;
+  input.rl = input.pt = input.yw = 0;
+  drone.bat = 16.8; drone.lowBat = false;
+  drone.crashed = false; drone.crashT = 0;
+  particles.length = 0;
+  smoke.length = 0;
+  crashOverlay.classList.add("hidden");
+  setHint("解锁穿越机：按住 W 推油门 ｜ 鼠标拖动 / 方向键控制姿态 ｜ A/D 转向 ｜ V 切视角");
+}
+
+let paused = false;
+function togglePause() {
+  if (drone.crashed) return;
+  paused = !paused;
+  setHint(paused ? "已暂停（P 继续）" : "");
+}
+
+function physics(dt) {
+  if (drone.crashed) { drone.crashT += dt; return; }
+
+  // 右摇杆（俯仰/滚转）+ 左摇杆（偏航）：键盘覆盖鼠标/触屏
+  let rl = input.rl, pt = input.pt, yw = input.yw;
+  if (keyState["arrowleft"]) rl = -1; else if (keyState["arrowright"]) rl = 1;
+  if (keyState["arrowdown"]) pt = 1; else if (keyState["arrowup"]) pt = -1;
+  if (keyState["a"]) yw = 1; else if (keyState["d"]) yw = -1;
+
+  // 油门（左手摇杆）
+  const thrDir = (keyState["w"] ? 1 : 0) - (keyState["s"] ? 1 : 0);
+  if (thrDir !== 0) input.thrT = clamp(input.thrT + thrDir * .8 * dt, 0, 1);
+  input.thr += (input.thrT - input.thr) * Math.min(1, 7 * dt);
+  drone.throttle = input.thr;
+
+  // Acro 角速度模式：摇杆 = 目标角速度，松杆角速度归零但姿态保持
+  drone.rateRoll += (rl * MAX_RATE_PR - drone.rateRoll) * Math.min(1, RATE_RESP * dt);
+  drone.ratePitch += (-pt * MAX_RATE_PR - drone.ratePitch) * Math.min(1, RATE_RESP * dt);
+  drone.rateYaw += (yw * MAX_RATE_YAW - drone.rateYaw) * Math.min(1, RATE_RESP * dt);
+  drone.roll += drone.rateRoll * dt;
+  drone.pitch += drone.ratePitch * dt;
+  drone.yaw += drone.rateYaw * dt;
+
+  // 推力（穿越机：正比油门平方）
+  const hSpeed = Math.hypot(drone.vx, drone.vz);
+  const agl = drone.y - terrainH(drone.x, drone.z);
+  const T = T_MAX * drone.throttle * drone.throttle;
+
+  // 机体向上方向（含姿态）——与 camBasis 同一矩阵的转置列（m21,m22,m23）
+  const sp = Math.sin(drone.pitch), cp = Math.cos(drone.pitch);
+  const sr = Math.sin(drone.roll), cr = Math.cos(drone.roll);
+  const sy = Math.sin(drone.yaw), cy = Math.cos(drone.yaw);
+  const wux = -sr * cy - cr * sp * sy;
+  const wuy = cr * cp;
+  const wuz = -sr * sy + cr * sp * cy;
+
+  // 空气阻力（相对风）
+  const dragK = .012;
+  const rvx = drone.vx - WIND.x, rvy = drone.vy, rvz = drone.vz - WIND.z;
+  const rv = Math.hypot(rvx, rvy, rvz) || 1e-6;
+  const drag = dragK * rv * rv;
+  const dvx = -drag * rvx / rv, dvy = -drag * rvy / rv, dvz = -drag * rvz / rv;
+
+  drone.vx += (T / M * wux + dvx) * dt;
+  drone.vy += (T / M * wuy - G + dvy) * dt;
+  drone.vz += (T / M * wuz + dvz) * dt;
+
+  drone.x += drone.vx * dt;
+  drone.y += drone.vy * dt;
+  drone.z += drone.vz * dt;
+  drone.x = clamp(drone.x, 8, WORLD.SIZE - 8);
+  drone.z = clamp(drone.z, 8, WORLD.SIZE - 8);
+
+  // ---- 碰撞 ----
+  const gh = terrainH(drone.x, drone.z);
+  if (drone.y < gh + 0.25) {
+    if (drone.vy < -4.5) {
+      doCrash("触地过重（下降率 " + (-drone.vy).toFixed(1) + " m/s）");
+    } else {
+      drone.y = gh + 0.25; drone.vy = 0;
+      drone.vx *= .8; drone.vz *= .8;
+      if (Math.abs(drone.pitch) < .15) drone.pitch = 0;
+      if (Math.abs(drone.roll) < .15) drone.roll = 0;
+      if (Math.abs(drone.ratePitch) > 3) doCrash("侧翻炸机");
+    }
+  }
+  for (const t of TREES) {
+    const d2 = (drone.x - t.x) ** 2 + (drone.z - t.z) ** 2;
+    if (d2 < 1.8 && (drone.y - gh) < t.h) doCrash("撞树");
+  }
+  for (const b of BUILDS) {
+    if (Math.abs(drone.x - b.x) < b.w / 2 + .4 && Math.abs(drone.z - b.z) < b.d / 2 + .4 &&
+        (drone.y - gh) < b.h) doCrash("撞上建筑物");
+  }
+  for (const g of GATES) {
+    const half = g.span / 2;
+    const ax = Math.abs(drone.x - g.x), az = Math.abs(drone.z - g.z);
+    if (Math.abs(ax - half) < .6 && az < .6 && (drone.y - gh) < g.h) doCrash("撞上拱门立柱");
+    if (ax < half + .5 && az < .5 && Math.abs(drone.y - gh - g.h) < .4) doCrash("撞上拱门横梁");
+  }
+  for (const r of ROCKS) {
+    const d2 = (drone.x - r.x) ** 2 + (drone.z - r.z) ** 2;
+    if (d2 < (r.r + .4) ** 2 && (drone.y - gh) < r.h) doCrash("撞上岩石");
+  }
+  for (const l of LAMPS) {
+    const d2 = (drone.x - l.x) ** 2 + (drone.z - l.z) ** 2;
+    if (d2 < .35 && (drone.y - gh) < 4.9) doCrash("撞上灯柱");
+  }
+  for (const tp of TIRE_PILES) {
+    if (Math.abs(drone.x - tp.x) < 1.5 && Math.abs(drone.z - tp.z) < 1.5 && (drone.y - gh) < 1.8) doCrash("撞上轮胎堆");
+  }
+
+  // 电池 / 状态
+  drone.bat = Math.max(14.6, drone.bat - dt * (0.012 + drone.throttle * 0.022));
+  drone.lowBat = drone.bat < 15.1;
+  drone.overSpeed = hSpeed > VNE;
+  drone.totalTime += dt;
+
+  // 近地气流灰尘
+  if (!drone.crashed && agl < 2.5 && drone.throttle > .55 && Math.random() < .8) {
+    const a = Math.random() * TAU, r = .5 + Math.random() * 1.6;
+    particles.push({
+      x: drone.x + Math.cos(a) * r, y: gh + .1, z: drone.z + Math.sin(a) * r,
+      vx: (Math.random() - .5) * 3, vy: 1 + Math.random() * 2, vz: (Math.random() - .5) * 3,
+      life: 1.2, max: 1.2, type: "dust"
+    });
+  }
+}
+
+function doCrash(reason) {
+  if (drone.crashed) return;
+  drone.crashed = true; drone.crashT = 0;
+  drone.pitch = (Math.random() - .5) * 2.2; drone.roll = (Math.random() - .5) * 2.2;   // 翻滚定格
+  drone.y = Math.max(drone.y, terrainH(drone.x, drone.z) + 0.3);
+  audio.crash();
+  for (let i = 0; i < 30; i++) {
+    smoke.push({
+      x: drone.x + (Math.random() - .5) * 3, y: drone.y + (Math.random() - .5) * 1.5, z: drone.z + (Math.random() - .5) * 3,
+      vx: (Math.random() - .5) * 2, vy: 1.5 + Math.random() * 3, vz: (Math.random() - .5) * 2,
+      life: 2 + Math.random() * 2.5, max: 4.5
+    });
+  }
+  setTimeout(() => {
+    crashInfo.innerHTML = "原因：" + reason + "<br>炸机地点 ALT " + (drone.y - terrainH(drone.x, drone.z)).toFixed(0) + " m AGL";
+    crashOverlay.classList.remove("hidden");
+  }, 700);
+}
+
+/* ---------------- 粒子 ---------------- */
+const particles = [], smoke = [];
+function stepParticles(dt) {
+  for (let i = particles.length - 1; i >= 0; i--) {
+    const p = particles[i];
+    p.life -= dt;
+    if (p.life <= 0) { particles.splice(i, 1); continue; }
+    p.x += p.vx * dt; p.y += p.vy * dt; p.z += p.vz * dt;
+  }
+  for (let i = smoke.length - 1; i >= 0; i--) {
+    const p = smoke[i];
+    p.life -= dt;
+    if (p.life <= 0) { smoke.splice(i, 1); continue; }
+    p.x += p.vx * dt; p.y += p.vy * dt; p.z += p.vz * dt;
+    p.vy += 1.2 * dt;
+  }
+}
+
+/* ---------------- 相机（世界→屏幕） ---------------- */
+const CAM = { f: 0, cx: 0, cy: 0 };
+function setCam() {
+  // 第一人称 FPV 超广角镜头（≈118° 水平视角），第三人称标准视野
+  CAM.f = H * lerp(1.0, 0.62, viewBlend);
+  CAM.cx = W / 2; CAM.cy = H / 2;
+}
+// 姿态矩阵（参数化；ψ=0 机头朝 -z，ψ 增大 = 左转，φ>0 = 右滚，θ>0 = 抬头）
+function basisOf(pitch, roll, yaw) {
+  const sp = Math.sin(pitch), cp = Math.cos(pitch);
+  const sr = Math.sin(roll), cr = Math.cos(roll);
+  const sy = Math.sin(yaw), cy = Math.cos(yaw);
+  return {
+    sy, cy,
+    m11: -cr * cy + sr * sp * sy, m12: -sr * cp, m13: -cr * sy - sr * sp * cy,
+    m21: -sr * cy - cr * sp * sy, m22: cr * cp, m23: -sr * sy + cr * sp * cy,
+    m31: cp * sy, m32: sp, m33: -cp * cy
+  };
+}
+// 相机基（渲染用，跟随视角平滑后的姿态）
+function camBasis() { return basisOf(camPitch, camRoll, camYaw); }
+// 机体基（物理/模型用）
+function bodyBasis() { return basisOf(drone.pitch, drone.roll, drone.yaw); }
+// 机体局部坐标 → 世界坐标
+function bodyToWorld(p, Bb) {
+  return {
+    x: drone.x + Bb.m11 * p.x + Bb.m21 * p.y + Bb.m31 * p.z,
+    y: drone.y + Bb.m12 * p.x + Bb.m22 * p.y + Bb.m32 * p.z,
+    z: drone.z + Bb.m13 * p.x + Bb.m23 * p.y + Bb.m33 * p.z
+  };
+}
+// 世界点 → 相机空间；z<近裁剪返回 null
+function toCam(wx, wy, wz, B) {
+  const dx = wx - camPos.x, dy = wy - camPos.y, dz = wz - camPos.z;
+  const x1 = B.m11 * dx + B.m12 * dy + B.m13 * dz;
+  const y1 = B.m21 * dx + B.m22 * dy + B.m23 * dz;
+  const z1 = B.m31 * dx + B.m32 * dy + B.m33 * dz;
+  if (z1 <= 0.35) return null;
+  return { x: x1, y: y1, z: z1, sx: CAM.cx + x1 / z1 * CAM.f, sy: CAM.cy - y1 / z1 * CAM.f };
+}
+
+/* ---------------- 渲染 ---------------- */
+const SKY_TOP = [32, 64, 110], SKY_HOR = [186, 212, 235];
+const FOG_COLOR = [186, 212, 235];
+const SUN = { az: -0.9, el: 0.55 };   // 太阳方向
+
+function fogMix(c, z) {
+  const f = clamp((z - 80) / 400, 0, .98);
+  return [
+    Math.round(c[0] * (1 - f) + FOG_COLOR[0] * f),
+    Math.round(c[1] * (1 - f) + FOG_COLOR[1] * f),
+    Math.round(c[2] * (1 - f) + FOG_COLOR[2] * f)
+  ];
+}
+
+function drawSky() {
+  const g = ctx.createLinearGradient(0, 0, 0, H * 0.72);
+  g.addColorStop(0, rgb(SKY_TOP));
+  g.addColorStop(1, rgb(SKY_HOR));
+  ctx.fillStyle = g;
+  ctx.fillRect(0, 0, W, H);
+  // 太阳光晕（方向向量投影）
+  const B = camBasis();
+  const sdx = Math.sin(SUN.az), sdz = -Math.cos(SUN.az);
+  const p = toCam(camPos.x + sdx * 600, camPos.y + SUN.el * 600, camPos.z + sdz * 600, B);
+  if (p) {
+    const rg = ctx.createRadialGradient(p.sx, p.sy, 0, p.sx, p.sy, H * .55);
+    rg.addColorStop(0, "rgba(255,244,214,.95)");
+    rg.addColorStop(.12, "rgba(255,238,190,.35)");
+    rg.addColorStop(1, "rgba(255,238,190,0)");
+    ctx.fillStyle = rg;
+    ctx.fillRect(0, 0, W, H);
+  }
+}
+
+function rgb(c) { return "rgb(" + c[0] + "," + c[1] + "," + c[2] + ")"; }
+
+// ============ 世界渲染（深度桶：所有场景元素按 z 远→近绘制，避免遮挡错误） ============
+const buckets = [];
+function drawWorld(B) {
+  const NB = 60;
+  if (buckets.length !== NB) { buckets.length = NB; for (let i = 0; i < NB; i++) buckets[i] = []; }
+  else for (let i = 0; i < NB; i++) buckets[i].length = 0;
+
+  // ---- 地形（perfStep 网格，高度查表免三角函数） ----
+  const ST = perfStep, N = WORLD.SIZE / ST, hs = ST / 8;
+  for (let i = 0; i < N; i++) {
+    const hi0 = i * hs;
+    for (let j = 0; j < N; j++) {
+      const hj0 = j * hs;
+      const x0 = i * ST, z0 = j * ST;
+      // 快速视锥剔除：网格中心大致在机头方向
+      const dx = x0 + ST / 2 - drone.x, dz = z0 + ST / 2 - drone.z;
+      const zc = dx * B.sy - dz * B.cy;
+      if (zc < -ST * 1.5) continue;                       // 机头后方剔除
+      if (dx * dx + dz * dz > 480 * 480) continue;        // 远距剔除
+      const h00 = HG[hi0][hj0], h10 = HG[hi0 + hs][hj0];
+      const h01 = HG[hi0][hj0 + hs], h11 = HG[hi0 + hs][hj0 + hs];
+      const p00 = toCam(x0, h00, z0, B), p10 = toCam(x0 + ST, h10, z0, B);
+      const p01 = toCam(x0, h01, z0 + ST, B), p11 = toCam(x0 + ST, h11, z0 + ST, B);
+      if (!p00 || !p10 || !p01 || !p11) continue;
+      const hAvg = (h00 + h10 + h01 + h11) / 4;
+      const slope = (Math.abs(h10 - h00) + Math.abs(h01 - h00) + Math.abs(h11 - h10)) / (3 * ST);
+      const zAvg = (p00.z + p10.z + p01.z + p11.z) / 4;
+      // 太阳方向光照：地形法线与太阳点积（背阴面变暗）
+      let gcol = groundColor(hAvg, slope);
+      if (!(hAvg <= WATER)) {
+        const nx = (h00 - h10) / ST, nz = (h00 - h01) / ST;
+        const nl = Math.hypot(nx, 1, nz);
+        const d = (nx * SUN_DIR[0] + SUN_DIR[1] + nz * SUN_DIR[2]) / nl;
+        const light = 0.78 + 0.42 * clamp(d, 0, 1);
+        gcol = [gcol[0] * light, gcol[1] * light, gcol[2] * light];
+      }
+      buckets[bidx2(zAvg)].push({
+        k: 0, p00, p10, p01, p11, x0, z0,
+        col: fogMix(gcol, zAvg),
+        water: hAvg <= WATER
+      });
+    }
+  }
+
+  // ---- 树 ----
+  for (const t of TREES) {
+    const tdx = t.x - drone.x, tdz = t.z - drone.z;
+    if (tdx * tdx + tdz * tdz > 400 * 400) continue;      // 世界距离预筛
+    const gh = terrainH(t.x, t.z);
+    const base = toCam(t.x, gh, t.z, B);
+    if (!base || base.z > 400) continue;
+    const top = toCam(t.x, gh + t.h, t.z, B);
+    if (!top) continue;
+    buckets[bidx2(base.z)].push({
+      k: 1, base, top, t,
+      w: t.h * .42 * CAM.f / base.z
+    });
+    // 树影
+    const sh = toCam(t.x, gh + .06, t.z, B);
+    if (sh) buckets[bidx2(sh.z)].push({ k: 5, p: sh, rx: 2.4, rz: 2.4, alpha: .16 });
+  }
+
+  // ---- 建筑（多色调 + 太阳光照 + 窗户） ----
+  for (const b of BUILDS) collectBox(b.x, b.z, b.w, b.d, b.h, b.tint, B, 0, true);
+
+  // ---- 机库（浅色 + 卷帘门朝停机坪） ----
+  collectBox(HANGAR.x, HANGAR.z, HANGAR.w, HANGAR.d, HANGAR.h, [205, 211, 219], B);
+  if (camPos.z < HANGAR.z - HANGAR.d / 2) {
+    const bh = terrainH(HANGAR.x, HANGAR.z);
+    const dz = HANGAR.z - HANGAR.d / 2 - .2;
+    const d0 = toCam(HANGAR.x - 5.5, bh + .05, dz, B), d1 = toCam(HANGAR.x + 5.5, bh + .05, dz, B);
+    const d2 = toCam(HANGAR.x + 5.5, bh + 4.6, dz, B), d3 = toCam(HANGAR.x - 5.5, bh + 4.6, dz, B);
+    if (d0 && d1 && d2 && d3) buckets[bidx2((d0.z + d2.z) / 2)].push({ k: 4, p0: d0, p1: d1, p2: d2, p3: d3, col: [42, 62, 94], alpha: 1 });
+  }
+
+  // ---- 拱门赛道（红白条纹门框） ----
+  for (const g of GATES) {
+    const segs = 5;
+    for (let s = 0; s < segs; s++) {
+      const col = s % 2 ? [236, 237, 241] : [205, 48, 44];
+      collectBox(g.x - g.span / 2, g.z, .5, .5, g.h / segs, col, B, g.h / segs * s);
+      collectBox(g.x + g.span / 2, g.z, .5, .5, g.h / segs, col, B, g.h / segs * s);
+    }
+    collectBox(g.x, g.z, g.span + .5, .5, .6, [236, 237, 241], B, g.h - .3);
+  }
+
+  // ---- 岩石 ----
+  for (const r of ROCKS) {
+    const rdx = r.x - drone.x, rdz = r.z - drone.z;
+    if (rdx * rdx + rdz * rdz > 340 * 340) continue;
+    const gh = terrainH(r.x, r.z);
+    const base = toCam(r.x, gh, r.z, B);
+    if (!base || base.z > 340) continue;
+    buckets[bidx2(base.z)].push({ k: 6, base, r });
+    const sh = toCam(r.x, gh + .05, r.z, B);
+    if (sh) buckets[bidx2(sh.z)].push({ k: 5, p: sh, rx: r.r * 1.15, rz: r.r * 1.15, alpha: .2 });
+  }
+
+  // ---- 灌木 ----
+  for (const b of BUSHES) {
+    const bdx = b.x - drone.x, bdz = b.z - drone.z;
+    if (bdx * bdx + bdz * bdz > 300 * 300) continue;
+    const gh = terrainH(b.x, b.z);
+    const base = toCam(b.x, gh, b.z, B);
+    if (!base || base.z > 300) continue;
+    buckets[bidx2(base.z)].push({ k: 7, base, b });
+    const sh = toCam(b.x, gh + .04, b.z, B);
+    if (sh) buckets[bidx2(sh.z)].push({ k: 5, p: sh, rx: b.r * 1.2, rz: b.r * 1.2, alpha: .14 });
+  }
+
+  // ---- 赛道旗 ----
+  for (const f of FLAGS) {
+    const fdx = f.x - drone.x, fdz = f.z - drone.z;
+    if (fdx * fdx + fdz * fdz > 360 * 360) continue;
+    const gh = terrainH(f.x, f.z);
+    const base = toCam(f.x, gh, f.z, B);
+    if (!base || base.z > 360) continue;
+    const top = toCam(f.x, gh + 4.5, f.z, B);
+    if (top) buckets[bidx2(top.z)].push({ k: 3, a: base, b: top, w: 2, col: "rgba(230,232,238,.95)" });
+    const wl = Math.hypot(WIND.x, WIND.z) || 1e-6;
+    const wdx = WIND.x / wl, wdz = WIND.z / wl;
+    const wig = Math.sin(now * 6 + f.x) * .22;
+    const a = toCam(f.x, gh + 4.3, f.z, B);
+    const b1 = toCam(f.x + wdx * 1.5, gh + 4.15 + wig, f.z + wdz * 1.5, B);
+    const b2 = toCam(f.x, gh + 4.3 + .55, f.z, B);
+    const b3 = toCam(f.x + wdx * 1.5, gh + 4.15 + .55 + wig, f.z + wdz * 1.5, B);
+    if (a && b1 && b2 && b3) buckets[bidx2((a.z + b1.z) / 2)].push({ k: 4, p0: a, p1: b1, p2: b3, p3: b2, col: f.col, alpha: 1 });
+  }
+
+  // ---- 赛道灯柱 ----
+  for (const l of LAMPS) {
+    const ldx = l.x - drone.x, ldz = l.z - drone.z;
+    if (ldx * ldx + ldz * ldz > 300 * 300) continue;
+    const gh = terrainH(l.x, l.z);
+    const base = toCam(l.x, gh, l.z, B);
+    if (!base || base.z > 300) continue;
+    const top = toCam(l.x, gh + 4.6, l.z, B);
+    if (top) buckets[bidx2(top.z)].push({ k: 3, a: base, b: top, w: 2.5, col: "rgba(150,156,166,.95)" });
+    collectBox(l.x, l.z, .22, .22, .28, [90, 96, 108], B, 4.6);
+    const gp = toCam(l.x, gh + 4.8, l.z, B);
+    if (gp) buckets[bidx2(gp.z)].push({ k: 9, p: gp, r: .2, col: [255, 244, 205] });
+  }
+
+  // ---- 轮胎堆障碍 ----
+  for (const tp of TIRE_PILES) {
+    const pdx = tp.x - drone.x, pdz = tp.z - drone.z;
+    if (pdx * pdx + pdz * pdz > 300 * 300) continue;
+    const gh = terrainH(tp.x, tp.z);
+    const base = toCam(tp.x, gh, tp.z, B);
+    if (!base || base.z > 300) continue;
+    buckets[bidx2(base.z)].push({ k: 10, base });
+    const sh = toCam(tp.x, gh + .04, tp.z, B);
+    if (sh) buckets[bidx2(sh.z)].push({ k: 5, p: sh, rx: 1.7, rz: 1.7, alpha: .2 });
+  }
+
+  // ---- 风向袋 ----
+  {
+    const gh = terrainH(WINDSOCK.x, WINDSOCK.z);
+    const base = toCam(WINDSOCK.x, gh, WINDSOCK.z, B);
+    if (base && base.z <= 420) {
+      const top = toCam(WINDSOCK.x, gh + 7, WINDSOCK.z, B);
+      if (top) buckets[bidx2(top.z)].push({ k: 3, a: base, b: top, w: 2.5, col: "rgba(196,200,210,.95)" });
+      const wl = Math.hypot(WIND.x, WIND.z) || 1e-6;
+      const wdx = WIND.x / wl, wdz = WIND.z / wl;
+      const px = -wdz, pz = wdx;
+      const wig = Math.sin(now * 4) * .35;
+      const a = toCam(WINDSOCK.x, gh + 6.85, WINDSOCK.z, B);
+      const b1 = toCam(WINDSOCK.x + wdx * 2.4, gh + 6.5 + wig, WINDSOCK.z + wdz * 2.4, B);
+      const b2 = toCam(WINDSOCK.x + px * .5, gh + 6.85, WINDSOCK.z + pz * .5, B);
+      const b3 = toCam(WINDSOCK.x + wdx * 2.4 + px * .5, gh + 6.5 + wig, WINDSOCK.z + wdz * 2.4 + pz * .5, B);
+      if (a && b1 && b2 && b3) buckets[bidx2((a.z + b1.z) / 2)].push({ k: 4, p0: a, p1: b1, p2: b3, p3: b2, col: [242, 138, 40], alpha: 1 });
+    }
+  }
+
+  // ---- 穿越机模型（第三人称） ----
+  collectDrone(B, bodyBasis());
+
+  // ---- 停机坪标记 ----
+  const segs = 40;
+  let prev = null;
+  for (let k = 0; k <= segs; k++) {
+    const a = k / segs * TAU;
+    const p = toCam(PAD.x + Math.cos(a) * PAD.r, PAD.h + .15, PAD.z + Math.sin(a) * PAD.r, B);
+    if (!p) { prev = null; continue; }
+    if (prev) buckets[bidx2((p.z + prev.z) / 2)].push({ k: 3, a: prev, b: p, w: 2, col: "rgba(60,60,66,.9)" });
+    prev = p;
+  }
+  const hx = (x, z) => toCam(x, PAD.h + .2, z, B);
+  const l1 = [hx(PAD.x - 3.4, PAD.z - 4.2), hx(PAD.x + 3.4, PAD.z - 4.2)];
+  const l2 = [hx(PAD.x - 3.4, PAD.z + 4.2), hx(PAD.x + 3.4, PAD.z + 4.2)];
+  const l3 = [hx(PAD.x, PAD.z - 4.2), hx(PAD.x, PAD.z + 4.2)];
+  for (const [a, b] of [l1, l2, l3]) if (a && b) buckets[bidx2((a.z + b.z) / 2)].push({ k: 3, a, b, w: 3, col: "rgba(255,214,90,.95)" });
+
+  // ---- 按桶从远到近绘制 ----
+  for (let bi = NB - 1; bi >= 0; bi--) {
+    const list = buckets[bi];
+    for (let ei = 0; ei < list.length; ei++) {
+      const e = list[ei];
+      if (e.k === 0) drawCell(e);
+      else if (e.k === 1) drawTree(e);
+      else if (e.k === 2) drawBuild(e);
+      else if (e.k === 4) drawQuad(e);
+      else if (e.k === 5) drawBlob(e);
+      else if (e.k === 6) drawRock(e);
+      else if (e.k === 7) drawBush(e);
+      else if (e.k === 9) drawGlow(e);
+      else if (e.k === 10) drawTire(e);
+      else line(e.a.sx, e.a.sy, e.b.sx, e.b.sy, e.col, e.w);
+    }
+  }
+}
+
+// 轴对齐盒收集器（建筑/机库/拱门通用；win=画窗户）
+function collectBox(bx, bz, bw, bd, bh, base, B, yOff, win) {
+  const bh0 = terrainH(bx, bz) + (yOff || 0);
+  const c = [
+    [bx - bw / 2, bh0, bz - bd / 2], [bx + bw / 2, bh0, bz - bd / 2],
+    [bx + bw / 2, bh0, bz + bd / 2], [bx - bw / 2, bh0, bz + bd / 2]
+  ];
+  const t = [
+    [bx - bw / 2, bh0 + bh, bz - bd / 2], [bx + bw / 2, bh0 + bh, bz - bd / 2],
+    [bx + bw / 2, bh0 + bh, bz + bd / 2], [bx - bw / 2, bh0 + bh, bz + bd / 2]
+  ];
+  const pc = c.map(p => toCam(p[0], p[1], p[2], B));
+  const pt = t.map(p => toCam(p[0], p[1], p[2], B));
+  if (pc.some(p => !p) || pt.some(p => !p)) return;
+  const zAvg = (pc[0].z + pt[2].z) / 2;
+  if (zAvg > 460) return;
+  buckets[bidx2(zAvg)].push({ k: 2, pc, pt, base, win: !!win });
+}
+
+// 面片（带光照的四边形）
+function drawQuad(e) {
+  const c = e.col;
+  ctx.fillStyle = e.alpha < 1
+    ? "rgba(" + (c[0] | 0) + "," + (c[1] | 0) + "," + (c[2] | 0) + "," + e.alpha + ")"
+    : rgb(c);
+  ctx.beginPath();
+  ctx.moveTo(e.p0.sx, e.p0.sy);
+  ctx.lineTo(e.p1.sx, e.p1.sy);
+  ctx.lineTo(e.p2.sx, e.p2.sy);
+  ctx.lineTo(e.p3.sx, e.p3.sy);
+  ctx.closePath();
+  ctx.fill();
+  ctx.strokeStyle = "rgba(0,0,0,.15)";
+  ctx.lineWidth = 1;
+  ctx.stroke();
+}
+
+// 地面阴影椭圆
+function drawBlob(e) {
+  const rx = e.rx * CAM.f / e.p.z, ry = e.rz * CAM.f / e.p.z * .5;
+  ctx.fillStyle = "rgba(15,20,26," + e.alpha + ")";
+  ctx.beginPath();
+  ctx.ellipse(e.p.sx, e.p.sy, Math.max(1, rx), Math.max(.8, ry), 0, 0, TAU);
+  ctx.fill();
+}
+
+// 发光点（灯柱 / LED）
+function drawGlow(e) {
+  const r = e.r * CAM.f / e.p.z;
+  const c = e.col;
+  ctx.fillStyle = "rgba(" + c[0] + "," + c[1] + "," + c[2] + ",.3)";
+  ctx.beginPath(); ctx.arc(e.p.sx, e.p.sy, Math.max(1.5, r * 1.7), 0, TAU); ctx.fill();
+  ctx.fillStyle = "rgb(" + c[0] + "," + c[1] + "," + c[2] + ")";
+  ctx.beginPath(); ctx.arc(e.p.sx, e.p.sy, Math.max(1, r * .6), 0, TAU); ctx.fill();
+}
+
+// 轮胎堆（三环金字塔）
+function drawTire(e) {
+  const base = e.base;
+  const R = .85 * CAM.f / base.z;
+  const ring = (cx, cy, rx, ry) => {
+    ctx.beginPath();
+    ctx.ellipse(cx, cy, rx, ry, 0, 0, TAU);
+    ctx.lineWidth = Math.max(2, R * .3);
+    ctx.strokeStyle = "rgba(28,30,34,.96)";
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.ellipse(cx, cy, rx * .55, ry * .55, 0, 0, TAU);
+    ctx.lineWidth = Math.max(1.5, R * .2);
+    ctx.strokeStyle = "rgba(56,60,66,.9)";
+    ctx.stroke();
+  };
+  ring(base.sx - R * .55, base.sy - R * .38, R * .6, R * .35);
+  ring(base.sx + R * .55, base.sy - R * .38, R * .6, R * .35);
+  ring(base.sx, base.sy - R * 1.08, R * .6, R * .35);
+}
+
+// 地形格子
+function drawCell(e) {
+  let col = e.col;
+  // 草地斑驳纹理（确定性噪点微调亮度）
+  if (!e.water) {
+    const n1 = Math.sin(e.x0 * 12.9898 + e.z0 * 78.233) * 43758.5453;
+    const s = ((n1 - Math.floor(n1)) - .5) * .1;
+    col = [col[0] * (1 + s), col[1] * (1 + s), col[2] * (1 + s)];
+  }
+  ctx.fillStyle = rgb(col);
+  ctx.beginPath();
+  ctx.moveTo(e.p00.sx, e.p00.sy);
+  ctx.lineTo(e.p10.sx, e.p10.sy);
+  ctx.lineTo(e.p11.sx, e.p11.sy);
+  ctx.lineTo(e.p01.sx, e.p01.sy);
+  ctx.closePath();
+  ctx.fill();
+  // 水面波浪高光
+  if (e.water) {
+    const ph = (Math.sin(e.x0 * .8 + e.z0 * .5 + now * 1.6) + 1) / 2;
+    ctx.fillStyle = "rgba(255,255,255," + (ph * .16).toFixed(3) + ")";
+    ctx.beginPath();
+    ctx.moveTo(lerp(e.p00.sx, e.p10.sx, .4), lerp(e.p00.sy, e.p10.sy, .4));
+    ctx.lineTo(lerp(e.p00.sx, e.p10.sx, .7), lerp(e.p00.sy, e.p10.sy, .7));
+    ctx.lineTo(lerp(e.p01.sx, e.p11.sx, .7), lerp(e.p01.sy, e.p11.sy, .7));
+    ctx.lineTo(lerp(e.p01.sx, e.p11.sx, .4), lerp(e.p01.sy, e.p11.sy, .4));
+    ctx.closePath();
+    ctx.fill();
+  }
+}
+
+function line(x0, y0, x1, y1, style, w) {
+  ctx.strokeStyle = style; ctx.lineWidth = w;
+  ctx.beginPath(); ctx.moveTo(x0, y0); ctx.lineTo(x1, y1); ctx.stroke();
+}
+
+// 树（三层树冠 billboard 精灵）
+function drawTree(e) {
+  const t = e.t, base = e.base, top = e.top, w = e.w;
+  const tint = t.tint;
+  const dark = [tint[0] * .7, tint[1] * .7, tint[2] * .7];
+  const light = [Math.min(255, tint[0] * 1.3), Math.min(255, tint[1] * 1.3), Math.min(255, tint[2] * 1.3)];
+  ctx.strokeStyle = rgb(fogMix([96, 70, 46], base.z));
+  ctx.lineWidth = Math.max(1, w * .16);
+  ctx.beginPath(); ctx.moveTo(base.sx, base.sy); ctx.lineTo(top.sx, top.sy); ctx.stroke();
+  const th = t.h * .85 * CAM.f / base.z;   // 树冠总高（像素）
+  // 底层（最大、最暗）
+  ctx.fillStyle = rgb(fogMix(dark, base.z));
+  ctx.beginPath();
+  ctx.moveTo(top.sx, top.sy - th * .42);
+  ctx.lineTo(top.sx - w * 1.15, top.sy + 2);
+  ctx.lineTo(top.sx + w * 1.15, top.sy + 2);
+  ctx.closePath(); ctx.fill();
+  // 中层
+  ctx.fillStyle = rgb(fogMix(tint, base.z));
+  ctx.beginPath();
+  ctx.moveTo(top.sx, top.sy - th * .88);
+  ctx.lineTo(top.sx - w * .85, top.sy - th * .18);
+  ctx.lineTo(top.sx + w * .85, top.sy - th * .18);
+  ctx.closePath(); ctx.fill();
+  // 顶层高光（偏左上方，受光面）
+  ctx.fillStyle = rgb(fogMix(light, base.z));
+  ctx.beginPath();
+  ctx.moveTo(top.sx, top.sy - th);
+  ctx.lineTo(top.sx - w * .5, top.sy - th * .5);
+  ctx.lineTo(top.sx + w * .15, top.sy - th * .52);
+  ctx.closePath(); ctx.fill();
+}
+
+// 岩石（低多边形石块 + 受光面）
+function drawRock(e) {
+  const base = e.base;
+  const w = e.r.r * 2 * CAM.f / base.z, h = e.r.h * 1.4 * CAM.f / base.z;
+  const cx = base.sx, cy = base.sy;
+  const col = [118, 120, 126];
+  ctx.beginPath();
+  for (let i = 0; i < 6; i++) {
+    const a = e.r.seed + i / 6 * TAU;
+    const px = cx + Math.cos(a) * w * .55, py = cy - Math.sin(a) * h * .45;
+    if (i === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
+  }
+  ctx.closePath();
+  ctx.fillStyle = rgb(fogMix(col, base.z));
+  ctx.fill();
+  ctx.strokeStyle = "rgba(0,0,0,.12)";
+  ctx.stroke();
+  // 顶部受光面
+  const lcol = [col[0] * 1.25, col[1] * 1.25, col[2] * 1.25];
+  ctx.beginPath();
+  ctx.ellipse(cx - w * .12, cy - h * .5, w * .3, h * .22, -.3, 0, TAU);
+  ctx.fillStyle = rgb(fogMix(lcol, base.z));
+  ctx.fill();
+}
+
+// 灌木（三球低矮灌木）
+function drawBush(e) {
+  const base = e.base, b = e.b;
+  const r = b.r * CAM.f / base.z;
+  const tint = b.tint;
+  ctx.fillStyle = rgb(fogMix([tint[0] * .75, tint[1] * .75, tint[2] * .75], base.z));
+  ctx.beginPath(); ctx.ellipse(base.sx - r * .45, base.sy - r * .22, r * .5, r * .38, 0, 0, TAU); ctx.fill();
+  ctx.fillStyle = rgb(fogMix(tint, base.z));
+  ctx.beginPath(); ctx.ellipse(base.sx + r * .3, base.sy - r * .35, r * .55, r * .42, 0, 0, TAU); ctx.fill();
+  ctx.fillStyle = rgb(fogMix([Math.min(255, tint[0] * 1.35), Math.min(255, tint[1] * 1.35), Math.min(255, tint[2] * 1.35)], base.z));
+  ctx.beginPath(); ctx.ellipse(base.sx, base.sy - r * .5, r * .4, r * .3, 0, 0, TAU); ctx.fill();
+}
+
+// 建筑（盒子渲染器：五面 + 太阳方向光照 + 背面剔除）
+function drawBuild(e) {
+  const pc = e.pc, pt = e.pt;
+  const faces = [
+    { pts: [pc[0], pc[1], pt[1], pt[0]], n: [0, 0, -1] },
+    { pts: [pc[2], pc[3], pt[3], pt[2]], n: [0, 0, 1] },
+    { pts: [pc[3], pc[0], pt[0], pt[3]], n: [-1, 0, 0] },
+    { pts: [pc[1], pc[2], pt[2], pt[1]], n: [1, 0, 0] },
+    { pts: [pt[0], pt[1], pt[2], pt[3]], n: [0, 1, 0] }
+  ];
+  for (const f of faces) {
+    const cx = (f.pts[0].x + f.pts[2].x) / 2, cy = (f.pts[0].y + f.pts[2].y) / 2, cz = (f.pts[0].z + f.pts[2].z) / 2;
+    const vx = camPos.x - cx, vy = camPos.y - cy, vz = camPos.z - cz;
+    if (f.n[0] * vx + f.n[1] * vy + f.n[2] * vz <= 0) continue;   // 背面剔除
+    const d = Math.max(0, f.n[0] * SUN_DIR[0] + f.n[1] * SUN_DIR[1] + f.n[2] * SUN_DIR[2]);
+    const l = .68 + .45 * d;
+    const col = f.n[1] > 0 ? [112, 118, 126] : [e.base[0] * l, e.base[1] * l, e.base[2] * l];
+    ctx.fillStyle = rgb(col);
+    ctx.beginPath();
+    ctx.moveTo(f.pts[0].sx, f.pts[0].sy);
+    ctx.lineTo(f.pts[1].sx, f.pts[1].sy);
+    ctx.lineTo(f.pts[2].sx, f.pts[2].sy);
+    ctx.lineTo(f.pts[3].sx, f.pts[3].sy);
+    ctx.closePath();
+    ctx.fill();
+    // 窗户（竖面，按像素尺寸自适应行列数）
+    if (e.win && f.n[1] === 0) {
+      const p0 = f.pts[0], p1 = f.pts[1], p2 = f.pts[2], p3 = f.pts[3];
+      const at = (u, v) => {
+        const lx = lerp(lerp(p0.x, p1.x, u), lerp(p3.x, p2.x, u), v);
+        const ly = lerp(lerp(p0.y, p1.y, u), lerp(p3.y, p2.y, u), v);
+        return [lx, ly];
+      };
+      const wpx = Math.hypot(p1.x - p0.x, p1.y - p0.y);
+      const hpx = Math.hypot(p3.x - p0.x, p3.y - p0.y);
+      const cols = Math.max(2, Math.min(7, Math.round(wpx / 34)));
+      const rows = Math.max(1, Math.min(4, Math.round(hpx / 42)));
+      ctx.fillStyle = "rgba(28,38,58,.5)";
+      for (let r = 0; r < rows; r++) {
+        for (let c = 0; c < cols; c++) {
+          const u0 = (c + .16) / cols, u1 = (c + .68) / cols;
+          const v0 = .32 + r * .24, v1 = v0 + .15;
+          if (v1 > .92) continue;
+          const [ax, ay] = at(u0, v0), [bx2, by2] = at(u1, v1);
+          ctx.fillRect(ax, ay, bx2 - ax, by2 - ay);
+        }
+      }
+    }
+  }
+}
+
+/* ---------------- FPV 穿越机 3D 模型（第三人称） ---------------- */
+// 面片库：局部坐标（y 上、z 前、x 右），每片 [4 顶点, 法线, 颜色, alpha]
+const F = {
+  cf: [36, 40, 48],        // 碳纤维板
+  motor: [62, 66, 74],     // 电机
+  cam: [24, 26, 32],       // 摄像头舱
+  batt: [46, 52, 60],      // 电池
+  blade: [208, 212, 222],  // 桨叶
+  disk: [170, 180, 200],   // 桨盘
+};
+const ARMS = [[1, 1], [1, -1], [-1, 1], [-1, -1]];
+function collectDrone(B, Bb) {
+  if (viewBlend > 0.6) return;   // FPV 视角下不渲染自身
+  const q = (pts, n, col, alpha) => {
+    const nw = {
+      x: Bb.m11 * n[0] + Bb.m21 * n[1] + Bb.m31 * n[2],
+      y: Bb.m12 * n[0] + Bb.m22 * n[1] + Bb.m32 * n[2],
+      z: Bb.m13 * n[0] + Bb.m23 * n[1] + Bb.m33 * n[2]
+    };
+    const sp = [];
+    let cx = 0, cy = 0, cz = 0;
+    for (const p of pts) {
+      const w = bodyToWorld(p, Bb);
+      const s = toCam(w.x, w.y, w.z, B);
+      if (!s) return;
+      sp.push(s);
+      cx += w.x; cy += w.y; cz += w.z;
+    }
+    cx /= pts.length; cy /= pts.length; cz /= pts.length;
+    const vx = camPos.x - cx, vy = camPos.y - cy, vz = camPos.z - cz;
+    if (nw.x * vx + nw.y * vy + nw.z * vz <= 0) return;   // 背面剔除
+    const l = .6 + .5 * Math.max(0, nw.x * SUN_DIR[0] + nw.y * SUN_DIR[1] + nw.z * SUN_DIR[2]);
+    const zAvg = (sp[0].z + sp[2].z) / 2;
+    buckets[bidx2(zAvg)].push({ k: 4, p0: sp[0], p1: sp[1], p2: sp[2], p3: sp[3], col: [col[0] * l, col[1] * l, col[2] * l], alpha });
+  };
+  const tf = (x, y, z) => ({ x, y, z });
+  // 局部轴对齐盒
+  const box = (cx, cy, cz, w, h, l, col, alpha) => {
+    const x0 = cx - w / 2, x1 = cx + w / 2;
+    const y0 = cy - h / 2, y1 = cy + h / 2;
+    const z0 = cz - l / 2, z1 = cz + l / 2;
+    q([tf(x0, y1, z0), tf(x1, y1, z0), tf(x1, y1, z1), tf(x0, y1, z1)], [0, 1, 0], col, alpha);
+    q([tf(x0, y0, z0), tf(x0, y0, z1), tf(x1, y0, z1), tf(x1, y0, z0)], [0, -1, 0], col, alpha);
+    q([tf(x0, y0, z0), tf(x0, y1, z0), tf(x0, y1, z1), tf(x0, y0, z1)], [-1, 0, 0], col, alpha);
+    q([tf(x1, y0, z0), tf(x1, y0, z1), tf(x1, y1, z1), tf(x1, y1, z0)], [1, 0, 0], col, alpha);
+    q([tf(x0, y0, z0), tf(x1, y0, z0), tf(x1, y1, z0), tf(x0, y1, z0)], [0, 0, -1], col, alpha);
+    q([tf(x0, y0, z1), tf(x0, y1, z1), tf(x1, y1, z1), tf(x1, y0, z1)], [0, 0, 1], col, alpha);
+  };
+
+  // 中心板 / 飞控层 / 芯片 / 摄像头 / 镜头 / 电池
+  box(0, .012, 0, .09, .024, .14, F.cf, 1);
+  box(0, .028, 0, .068, .007, .1, [42, 46, 54], 1);
+  box(0, .033, 0, .02, .005, .028, [88, 94, 104], 1);
+  box(0, .035, .075, .05, .035, .045, F.cam, 1);
+  q([tf(-.012, .026, .0985), tf(.012, .026, .0985), tf(.012, .044, .0985), tf(-.012, .044, .0985)], [0, 0, 1], [96, 104, 118], 1);
+  box(0, -.03, -.01, .08, .022, .06, F.batt, 1);
+
+  // 机臂（X 型锥形臂：顶 / 底 / 外侧三个面片）
+  for (const [ax, az] of ARMS) {
+    const ux = ax * .7071, uz = az * .7071;          // 臂方向（水平单位向量）
+    const pxx = -uz, pzz = ux;                       // 水平垂直方向
+    const tx = ux * .098, tz = uz * .098;
+    q([tf(-pxx * .013, .032, -pzz * .013), tf(tx - pxx * .008, .045, tz - pzz * .008),
+       tf(tx + pxx * .008, .045, tz + pzz * .008), tf(pxx * .013, .032, pzz * .013)], [0, 1, 0], [46, 50, 58], 1);
+    q([tf(-pxx * .013, .012, -pzz * .013), tf(pxx * .013, .012, pzz * .013),
+       tf(tx + pxx * .008, .02, tz + pzz * .008), tf(tx - pxx * .008, .02, tz - pzz * .008)], [0, -1, 0], [34, 38, 46], 1);
+    q([tf(pxx * .013, .012, pzz * .013), tf(tx + pxx * .008, .02, tz + pzz * .008),
+       tf(tx + pxx * .008, .045, tz + pzz * .008), tf(pxx * .013, .032, pzz * .013)], [pxx, .35, pzz], [40, 44, 52], 1);
+  }
+  // 电机（六棱柱 + 顶盖）
+  for (const [ax, az] of ARMS) {
+    const mx = ax * .1, mz = az * .1, my = .052, mr = .021;
+    for (let k = 0; k < 6; k++) {
+      const a1 = k / 6 * TAU, a2 = (k + 1) / 6 * TAU;
+      const ca1 = Math.cos(a1), sa1 = Math.sin(a1), ca2 = Math.cos(a2), sa2 = Math.sin(a2);
+      q([tf(mx + ca1 * mr, my - .014, mz + sa1 * mr), tf(mx + ca2 * mr, my - .014, mz + sa2 * mr),
+         tf(mx + ca2 * mr, my + .014, mz + sa2 * mr), tf(mx + ca1 * mr, my + .014, mz + sa1 * mr)],
+        [Math.cos((a1 + a2) / 2), 0, Math.sin((a1 + a2) / 2)], F.motor, 1);
+    }
+    q([tf(mx - mr, my + .014, mz - mr), tf(mx + mr, my + .014, mz - mr),
+       tf(mx + mr, my + .014, mz + mr), tf(mx - mr, my + .014, mz + mr)], [0, 1, 0], [86, 90, 98], 1);
+  }
+  // 螺旋桨（4 个：半透明桨盘 + 2 片带宽度桨叶，对角同向相邻反向）
+  const rot = drone.crashed ? drone.crashT * 8 : now * (10 + drone.throttle * 170);
+  for (let i = 0; i < 4; i++) {
+    const [ax, az] = ARMS[i];
+    const dir = (i === 0 || i === 3) ? 1 : -1;
+    const ra = rot * dir;
+    const px = ax * .1, pz = az * .1, py = .065;
+    // 桨盘（8 个三角，半透明）
+    for (let k = 0; k < 8; k++) {
+      const a1 = k / 8 * TAU + ra, a2 = (k + 1) / 8 * TAU + ra;
+      const p1 = tf(px + Math.cos(a1) * .085, py, pz + Math.sin(a1) * .085);
+      const p2 = tf(px + Math.cos(a2) * .085, py, pz + Math.sin(a2) * .085);
+      q([tf(px, py, pz), p1, p2, p1], [0, 1, 0], F.disk, .13);
+    }
+    // 桨叶（2 片对置，带宽度四边形）
+    for (let k = 0; k < 2; k++) {
+      const ca = Math.cos(ra + k * Math.PI), sa = Math.sin(ra + k * Math.PI);
+      const wx = sa, wz = -ca;                       // 桨宽方向
+      q([tf(px + ca * .012 + wx * .007, py, pz + sa * .012 + wz * .007),
+         tf(px + ca * .082 + wx * .006, py, pz + sa * .082 + wz * .006),
+         tf(px + ca * .082 - wx * .006, py, pz + sa * .082 - wz * .006),
+         tf(px + ca * .012 - wx * .007, py, pz + sa * .012 - wz * .007)], [0, 1, 0], F.blade, 1);
+    }
+  }
+  // 天线（尾部两根）
+  {
+    const a1 = toCamFromBody(.028, .024, -.07, B, Bb), b1 = toCamFromBody(.028, .095, -.13, B, Bb);
+    if (a1 && b1) buckets[bidx2((a1.z + b1.z) / 2)].push({ k: 3, a: a1, b: b1, w: 1.5, col: "rgba(40,44,52,.9)" });
+    const a2 = toCamFromBody(-.028, .024, -.07, B, Bb), b2 = toCamFromBody(-.028, .095, -.13, B, Bb);
+    if (a2 && b2) buckets[bidx2((a2.z + b2.z) / 2)].push({ k: 3, a: a2, b: b2, w: 1.5, col: "rgba(40,44,52,.9)" });
+  }
+  // LED 尾灯（红 / 绿发光点）
+  {
+    const lr = toCamFromBody(.032, .024, -.075, B, Bb);
+    if (lr) buckets[bidx2(lr.z)].push({ k: 9, p: lr, r: .022, col: [255, 64, 64] });
+    const lg = toCamFromBody(-.032, .024, -.075, B, Bb);
+    if (lg) buckets[bidx2(lg.z)].push({ k: 9, p: lg, r: .022, col: [64, 255, 120] });
+  }
+  // 机身地面阴影
+  {
+    const gh = terrainH(drone.x, drone.z);
+    const p = toCam(drone.x, gh + .04, drone.z, B);
+    if (p) buckets[bidx2(p.z)].push({ k: 5, p, rx: .55, rz: .55, alpha: .3 });
+  }
+}
+// 机体局部点直接转屏幕
+function toCamFromBody(lx, ly, lz, B, Bb) {
+  const w = bodyToWorld({ x: lx, y: ly, z: lz }, Bb);
+  return toCam(w.x, w.y, w.z, B);
+}
+// drawWorld 内部的桶索引函数复用
+function bidx2(z) {
+  const i = (z * 60 / 480) | 0;
+  return i < 0 ? 0 : (i >= 60 ? 59 : i);
+}
+
+// 云
+function drawClouds(B) {
+  for (const c of CLOUDS) {
+    const p = toCam(c.x, c.y, c.z, B);
+    if (!p || p.z > 900) continue;
+    const s = c.s * CAM.f / p.z;
+    const f = clamp((p.z - 300) / 600, 0, .7);
+    ctx.fillStyle = "rgba(255,255,255," + (.75 - f).toFixed(3) + ")";
+    for (const [ox, oy, r] of [[0, 0, .55], [-.5, .12, .38], [.5, .1, .4], [-.15, -.18, .34], [.2, -.22, .3]]) {
+      ctx.beginPath();
+      ctx.ellipse(p.sx + ox * s, p.sy + oy * s, r * s, r * s * .55, 0, 0, TAU);
+      ctx.fill();
+    }
+  }
+}
+
+// 粒子
+function drawParticles(B) {
+  for (const p of particles) {
+    const pt = toCam(p.x, p.y, p.z, B);
+    if (!pt) continue;
+    const a = clamp(p.life / p.max, 0, 1);
+    ctx.fillStyle = "rgba(150,124,88," + (a * .5).toFixed(3) + ")";
+    const r = Math.max(1, 2.4 * CAM.f / pt.z);
+    ctx.beginPath(); ctx.arc(pt.sx, pt.sy, r, 0, TAU); ctx.fill();
+  }
+  for (const p of smoke) {
+    const pt = toCam(p.x, p.y, p.z, B);
+    if (!pt) continue;
+    const a = clamp(p.life / p.max, 0, 1);
+    ctx.fillStyle = "rgba(30,30,34," + (a * .55).toFixed(3) + ")";
+    const r = Math.max(2, (1.6 - a) * 9 * CAM.f / pt.z + 4);
+    ctx.beginPath(); ctx.arc(pt.sx, pt.sy, r, 0, TAU); ctx.fill();
+  }
+}
+
+/* ---------------- 座舱与仪表 ---------------- */
+let showPanel = true;
+
+// FPV OSD（Betaflight 风格：十字准星 / 人工地平线 / HOME 箭头 / 飞行数据）
+function drawCockpit() {
+  if (viewMode === 1) {
+    // FPV 镜头暗角（超广角感）
+    const vg = ctx.createRadialGradient(W / 2, H / 2, H * .32, W / 2, H / 2, H * .8);
+    vg.addColorStop(0, "rgba(0,0,0,0)");
+    vg.addColorStop(1, "rgba(0,0,0,.42)");
+    ctx.fillStyle = vg;
+    ctx.fillRect(0, 0, W, H);
+  }
+  if (!showPanel) return;
+
+  const hSpeed = Math.hypot(drone.vx, drone.vz) * 3.6;
+  const agl = Math.max(0, drone.y - terrainH(drone.x, drone.z));
+  const windSpd = Math.hypot(WIND.x, WIND.z);
+  const cx = W / 2, cy = H / 2;
+
+  const osd = (txt, x, y, size, align) => {
+    ctx.font = "600 " + size + "px Consolas, monospace";
+    ctx.textAlign = align || "left";
+    ctx.lineWidth = 3;
+    ctx.strokeStyle = "rgba(0,0,0,.85)";
+    ctx.strokeText(txt, x, y);
+    ctx.fillStyle = "#fff";
+    ctx.fillText(txt, x, y);
+  };
+
+  // 左上：时间 / 油门
+  const tSec = drone.totalTime;
+  const mm = String((tSec / 60) | 0).padStart(2, "0"), ss = String((tSec % 60) | 0).padStart(2, "0");
+  osd("FLT " + mm + ":" + ss, 18, 26, 15);
+  osd("THR " + Math.round(drone.throttle * 100) + "%", 18, 48, 15);
+  ctx.fillStyle = "rgba(0,0,0,.4)";
+  ctx.fillRect(18, 56, 120, 6);
+  ctx.fillStyle = drone.throttle > .9 ? "#ff5050" : "#37c95e";
+  ctx.fillRect(18, 56, 120 * drone.throttle, 6);
+
+  // 左下：电压 / 电流 / 镜头仰角
+  ctx.font = "600 15px Consolas, monospace"; ctx.textAlign = "left";
+  ctx.lineWidth = 3; ctx.strokeStyle = "rgba(0,0,0,.85)";
+  ctx.strokeText("VBAT " + drone.bat.toFixed(1) + "V", 18, H - 52);
+  ctx.fillStyle = drone.lowBat && Math.floor(now * 4) % 2 ? "#ff4040" : "#fff";
+  ctx.fillText("VBAT " + drone.bat.toFixed(1) + "V", 18, H - 52);
+  osd("AMP  " + (8 + drone.throttle * 55).toFixed(1) + "A", 18, H - 32, 15);
+  osd("CAM  " + Math.round(drone.uptilt * 180 / Math.PI) + "°", 18, H - 12, 15);
+
+  // 右上：高度 / 地速 / 风向 / 航向
+  osd("ALT   " + agl.toFixed(0) + "m", W - 18, 26, 15, "right");
+  osd("GSPD  " + hSpeed.toFixed(0) + "km/h", W - 18, 48, 15, "right");
+  osd("WIND  " + windSpd.toFixed(1) + "m/s", W - 18, 70, 15, "right");
+  osd("HDG " + hdgStr(), W - 18, 92, 15, "right");
+
+  // 中央：十字准星
+  ctx.strokeStyle = "rgba(255,255,255,.9)";
+  ctx.lineWidth = 1.5;
+  ctx.beginPath();
+  ctx.moveTo(cx - 16, cy); ctx.lineTo(cx - 5, cy);
+  ctx.moveTo(cx + 5, cy); ctx.lineTo(cx + 16, cy);
+  ctx.moveTo(cx, cy - 16); ctx.lineTo(cx, cy - 5);
+  ctx.moveTo(cx, cy + 5); ctx.lineTo(cx, cy + 16);
+  ctx.stroke();
+  ctx.fillStyle = "#fff";
+  ctx.beginPath(); ctx.arc(cx, cy, 1.8, 0, TAU); ctx.fill();
+
+  // 人工地平线（随滚转旋转、随俯仰平移）
+  ctx.save();
+  ctx.translate(cx, cy);
+  ctx.rotate(-drone.roll);
+  const pitchPx = drone.pitch * 260;
+  ctx.strokeStyle = "rgba(255,255,255,.85)";
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.moveTo(-130, pitchPx); ctx.lineTo(-18, pitchPx);
+  ctx.moveTo(18, pitchPx); ctx.lineTo(130, pitchPx);
+  ctx.stroke();
+  ctx.restore();
+
+  // HOME 箭头（指向起降点）
+  const hdx = PAD.x - drone.x, hdz = PAD.z - drone.z;
+  const homeDist = Math.hypot(hdx, hdz);
+  const fwdDot = hdx * Math.sin(drone.yaw) + hdz * -Math.cos(drone.yaw);
+  const rightDot = hdx * -Math.cos(drone.yaw) + hdz * -Math.sin(drone.yaw);
+  const ang = Math.atan2(rightDot, fwdDot);
+  const ax = cx + Math.sin(ang) * 95, ay = cy - Math.cos(ang) * 95;
+  ctx.save();
+  ctx.translate(ax, ay);
+  ctx.rotate(ang);
+  ctx.strokeStyle = "rgba(255,255,255,.95)";
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.moveTo(0, -13); ctx.lineTo(9, 8); ctx.lineTo(0, 4); ctx.lineTo(-9, 8);
+  ctx.closePath(); ctx.stroke();
+  ctx.restore();
+  osd(Math.round(homeDist) + "m", cx + 12, cy + 32, 13, "center");
+
+  // 警告
+  const osdWarn = (txt, y, size) => {
+    ctx.font = "700 " + size + "px Consolas, monospace";
+    ctx.textAlign = "center";
+    ctx.lineWidth = 3;
+    ctx.strokeStyle = "rgba(0,0,0,.85)";
+    ctx.strokeText(txt, cx, y);
+    ctx.fillStyle = "#ff4040";
+    ctx.fillText(txt, cx, y);
+  };
+  if (drone.lowBat && Math.floor(now * 4) % 2 === 0) osdWarn("LOW BATTERY", cy - 55, 16);
+  if (drone.overSpeed) osdWarn("OVER SPEED", cy - 75, 14);
+  if (drone.crashed) osdWarn("★ CRASH ★", cy - 55, 18);
+}
+
+function hdgStr() {
+  const h = (((drone.yaw * 180 / Math.PI) % 360) + 360) % 360;
+  return (h < 100 ? "0" : "") + (h < 10 ? "0" : "") + Math.round(h) + "°";
+}
+
+
+/* ---------------- 音频 ---------------- */
+const audio = {
+  ctx: null, master: null,
+  init() {
+    if (this.ctx) return;
+    try {
+      this.ctx = new (window.AudioContext || window.webkitAudioContext)();
+    } catch (e) { return; }
+    this.master = this.ctx.createGain();
+    this.master.gain.value = .5;
+    this.master.connect(this.ctx.destination);
+
+    // 旋翼拍击：载波 + 低频调制（4 桨叶 chop）
+    this.rotorGain = this.ctx.createGain();
+    this.rotorGain.gain.value = 0;
+    this.rotorGain.connect(this.master);
+    this.rotorOsc = this.ctx.createOscillator();
+    this.rotorOsc.type = "sawtooth";
+    this.rotorOsc.frequency.value = 62;
+    const lfo = this.ctx.createOscillator();
+    lfo.frequency.value = 16;
+    const lfoG = this.ctx.createGain();
+    lfoG.gain.value = .5;
+    lfo.connect(lfoG); lfoG.connect(this.rotorGain.gain);
+    const bp = this.ctx.createBiquadFilter();
+    bp.type = "bandpass"; bp.frequency.value = 130; bp.Q.value = .8;
+    this.rotorOsc.connect(bp); bp.connect(this.rotorGain);
+    this.rotorOsc.start(); lfo.start();
+    this.rotorLFO = lfo;
+
+    // 发动机
+    this.engGain = this.ctx.createGain();
+    this.engGain.gain.value = 0;
+    this.engGain.connect(this.master);
+    this.engOsc = this.ctx.createOscillator();
+    this.engOsc.type = "sawtooth";
+    this.engOsc.frequency.value = 82;
+    const engF = this.ctx.createBiquadFilter();
+    engF.type = "lowpass"; engF.frequency.value = 260;
+    this.engOsc.connect(engF); engF.connect(this.engGain);
+    this.engOsc.start();
+  },
+  update(thr) {
+    if (!this.ctx) return;
+    const t = this.ctx.currentTime;
+    // 穿越机电机：高频嗡鸣，频率与音量随油门
+    this.rotorOsc.frequency.setTargetAtTime(140 + thr * 260, t, .05);
+    this.rotorLFO.frequency.setTargetAtTime(28 + thr * 46, t, .05);
+    this.rotorGain.gain.setTargetAtTime(.02 + thr * .16, t, .05);
+    this.engOsc.frequency.setTargetAtTime(110 + thr * 190, t, .06);
+    this.engGain.gain.setTargetAtTime(.015 + thr * .07, t, .06);
+  },
+  stop() {
+    if (!this.ctx) return;
+    const t = this.ctx.currentTime;
+    this.rotorGain.gain.setTargetAtTime(0, t, .15);
+    this.engGain.gain.setTargetAtTime(0, t, .15);
+  },
+  crash() {
+    if (!this.ctx) return;
+    const t = this.ctx.currentTime;
+    this.stop();
+    const buf = this.ctx.createBuffer(1, this.ctx.sampleRate * .5, this.ctx.sampleRate);
+    const d = buf.getChannelData(0);
+    for (let i = 0; i < d.length; i++) {
+      d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / d.length, 2);
+    }
+    const src = this.ctx.createBufferSource();
+    src.buffer = buf;
+    const f = this.ctx.createBiquadFilter();
+    f.type = "lowpass"; f.frequency.value = 900;
+    const g = this.ctx.createGain(); g.gain.value = .8;
+    src.connect(f); f.connect(g); g.connect(this.master);
+    src.start();
+  }
+};
+
+/* ---------------- 主循环 ---------------- */
+let last = performance.now(), now = 0;
+function frame(t) {
+  now = t / 1000;
+  let dt = Math.min((t - last) / 1000, .05);
+  last = t;
+
+  // 帧率自适应：平均帧时间超标则降渲染网格，流畅时自动恢复精细
+  perfAvg = perfAvg * .93 + dt * .07;
+  if (perfStep === 8 && perfAvg > .026) { if (++perfHigh > 20) { perfStep = 16; perfHigh = 0; } }
+  else perfHigh = 0;
+  if (perfStep === 16 && perfAvg < .015) { if (++perfLow > 30) { perfStep = 8; perfLow = 0; } }
+  else perfLow = 0;
+
+  if (!paused && started) {
+    physics(dt);
+    stepParticles(dt);
+  }
+  if (!drone.crashed) audio.update(drone.throttle);
+
+  // 视角平滑过渡（FPV 第一人称 ⇄ 固定第三人称）
+  const targetBlend = viewMode === 1 ? 1 : 0;
+  viewBlend += (targetBlend - viewBlend) * Math.min(1, dt * 4);
+  const Bb = bodyBasis();
+
+  // 第一人称目标：FPV 镜头（带仰角，完全跟随姿态）
+  const fpvPitch = drone.pitch + drone.uptilt, fpvRoll = drone.roll;
+  const fpvYaw = camYaw + (((drone.yaw - camYaw + Math.PI * 3) % TAU) - Math.PI);
+  const fpvX = drone.x + Bb.m21 * .06 + Bb.m31 * .12;
+  const fpvY = drone.y + Bb.m22 * .06 + Bb.m32 * .12;
+  const fpvZ = drone.z + Bb.m23 * .06 + Bb.m33 * .12;
+
+  // 第三人称目标：固定视角（相机悬于无人机后上方，始终看向无人机，地平线水平）
+  const c3x = drone.x, c3y = drone.y + .62, c3z = drone.z - 1.15;
+  const dx = drone.x - c3x, dy = (drone.y + .18) - c3y, dz = drone.z - c3z;
+  const len = Math.hypot(dx, dy, dz) || 1e-6;
+  const lookPitch = Math.asin(clamp(dy / len, -1, 1));
+  const rawLookYaw = Math.atan2(dx, -dz);
+  const lookYaw = camYaw + (((rawLookYaw - camYaw + Math.PI * 3) % TAU) - Math.PI);
+
+  camPitch = lerp(lookPitch, fpvPitch, viewBlend);
+  camRoll = lerp(0, fpvRoll, viewBlend);
+  camYaw = lerp(lookYaw, fpvYaw, viewBlend);
+  camPos.x = lerp(c3x, fpvX, viewBlend);
+  camPos.y = lerp(c3y, fpvY, viewBlend);
+  camPos.z = lerp(c3z, fpvZ, viewBlend);
+
+  // 坠毁镜头震动
+  const shake = drone.crashed && drone.crashT < 1 ? Math.random() * 14 * (1 - drone.crashT) : 0;
+  const ox = (Math.random() - .5) * shake, oy = (Math.random() - .5) * shake;
+
+  setCam();
+  ctx.save();
+  ctx.translate(ox, oy);
+  drawSky();
+  const B = camBasis();
+  drawClouds(B);
+  drawWorld(B);
+  drawParticles(B);
+  ctx.restore();
+
+  drawCockpit();
+
+  // 坠毁红闪
+  if (drone.crashed && drone.crashT < .6) {
+    ctx.fillStyle = "rgba(255,40,40," + ((.6 - drone.crashT) * .6).toFixed(3) + ")";
+    ctx.fillRect(0, 0, W, H);
+  }
+
+  requestAnimationFrame(frame);
+}
+
+/* ---------------- UI ---------------- */
+let started = false;
+const startOverlay = document.getElementById("startOverlay");
+const crashOverlay = document.getElementById("crashOverlay");
+const crashInfo = document.getElementById("crashInfo");
+const hintEl = document.getElementById("hint");
+let hintTimer = null;
+function setHint(msg) {
+  hintEl.textContent = msg;
+  if (hintTimer) clearTimeout(hintTimer);
+  if (msg) hintTimer = setTimeout(() => { hintEl.textContent = ""; }, 6000);
+}
+document.getElementById("startBtn").addEventListener("click", () => {
+  audio.init();
+  if (audio.ctx && audio.ctx.state === "suspended") audio.ctx.resume();
+  startOverlay.classList.add("hidden");
+  started = true;
+  setHint("总距 W 升高 · S 降低 ｜ ↓ 推杆前飞 ｜ A/D 转向 ｜ V 切换视角 ｜ 目标：飞一圈回停机坪平稳着陆");
+});
+document.getElementById("crashBtn").addEventListener("click", restart);
+window.addEventListener("keydown", (e) => { if (e.key.toLowerCase() === "r") crashOverlay.classList.add("hidden"); });
+
+setHint("点击「启动引擎」开始飞行");
+requestAnimationFrame(frame);
+</script>
+</body>
+</html>

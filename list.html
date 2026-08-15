@@ -1,0 +1,245 @@
+---
+---
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>文件夹列表</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+    background: #f6f7f9;
+    color: #1f2328;
+    line-height: 1.6;
+  }
+  .wrap { max-width: 640px; margin: 0 auto; padding: 26px 16px 60px; }
+
+  header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+  h1 { font-size: 1.35rem; }
+  button {
+    font: inherit;
+    font-size: .88rem;
+    background: #fff;
+    border: 1px solid #d0d7de;
+    border-radius: 6px;
+    padding: 6px 14px;
+    cursor: pointer;
+  }
+  button:hover { background: #f0f3f6; }
+
+  .summary { color: #7a828c; font-size: .85rem; margin-bottom: 16px; }
+
+  .msg {
+    background: #fff8e6;
+    border: 1px solid #f0d48a;
+    border-radius: 8px;
+    padding: 12px 16px;
+    font-size: .9rem;
+    margin-bottom: 14px;
+    display: none;
+  }
+  .msg.show { display: block; }
+  .msg code {
+    background: #f2e8c9;
+    border-radius: 4px;
+    padding: 1px 6px;
+    font-family: Consolas, monospace;
+  }
+
+  .card {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    background: #fff;
+    border: 1px solid #e3e6ea;
+    border-radius: 10px;
+    padding: 14px 18px;
+    margin-bottom: 10px;
+    text-decoration: none;
+    color: inherit;
+  }
+  .card:hover { border-color: #4a9eff; background: #f5f9ff; transform: translateX(4px); }
+  .card .name { font-weight: 700; font-size: 1.02rem; color: #0969da; word-break: break-all; }
+  .card:hover .name { text-decoration: underline; }
+  .card .go { color: #7a828c; font-size: .85rem; flex-shrink: 0; }
+
+  .empty { text-align: center; color: #7a828c; padding: 60px 0; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>📁 文件夹列表</h1>
+    <button id="refreshBtn">🔄 刷新</button>
+  </header>
+
+  <div class="summary" id="summary"></div>
+  <div class="msg" id="msg"></div>
+  <main id="list"></main>
+</div>
+
+<!-- Jekyll 构建时注入：仓库中所有一级文件夹及其 index 文件 -->
+<script id="jekyll-data" type="application/json">
+{% assign folders = "" %}
+{% for f in site.static_files %}
+  {% assign parts = f.path | split: "/" %}
+  {% if parts.size == 3 %}
+    {% if parts[2] == "index.html" or parts[2] == "index.htm" %}
+      {% assign folders = folders | append: parts[1] | append: "=" | append: parts[2] | append: "|" %}
+    {% endif %}
+  {% endif %}
+{% endfor %}
+{
+  "folders": [{% assign first = true %}{% assign entries = folders | split: "|" | uniq %}{% for e in entries %}{% if e != "" %}{% assign kv = e | split: "=" %}{% unless first %},{% endunless %}
+    { "name": "{{ kv[0] }}", "idx": "{{ kv[1] }}" }{% assign first = false %}{% endif %}{% endfor %}
+  ]
+}
+</script>
+
+<script>
+(() => {
+  "use strict";
+
+  /* 页面自身标记：用于识别目录列表遮蔽 */
+  const MARKER = "DIRLIST_PAGE_V3";
+
+  const listEl = document.getElementById("list");
+  const msgEl = document.getElementById("msg");
+  const summaryEl = document.getElementById("summary");
+
+  const esc = (s) =>
+    String(s).replace(/[&<>"']/g, (c) => (
+      { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]
+    ));
+
+  const safeDecode = (s) => {
+    try { return decodeURIComponent(s); } catch (e) { return s; }
+  };
+
+  const isListing = (text) => /Directory listing for/i.test(text) || /Index of \//i.test(text);
+
+  /* 移除本地未渲染的 Jekyll front matter 文本（仅本地直接打开时出现） */
+  (function removeFrontMatterText() {
+    const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
+    const toRemove = [];
+    while (walker.nextNode()) {
+      const n = walker.currentNode;
+      if (n.nodeValue && /^-{3,}\s*$/.test(n.nodeValue.trim())) toRemove.push(n);
+    }
+    toRemove.forEach((n) => n.remove());
+  })();
+
+  /* ---------- 数据源 A：本地服务器目录列表（动态） ---------- */
+  async function parseRoot() {
+    const res = await fetch("./", { cache: "no-store" });
+    if (!res.ok) throw new Error("HTTP " + res.status);
+    const text = await res.text();
+    if (text.includes(MARKER)) throw new Error("shadowed");
+    if (!isListing(text)) throw new Error("shadowed");
+    const doc = new DOMParser().parseFromString(text, "text/html");
+    const dirs = [];
+    doc.querySelectorAll("a[href]").forEach((a) => {
+      const href = a.getAttribute("href");
+      if (!href || /^(\/|\.\.|#|\?|https?:|mailto:)/i.test(href)) return;
+      if (href.endsWith("/")) dirs.push({ name: safeDecode(href.slice(0, -1)), href });
+    });
+    return dirs;
+  }
+
+  async function probeIndex(dirHref) {
+    for (const idx of ["index.html", "index.htm"]) {
+      try {
+        const res = await fetch(dirHref + idx, { cache: "no-store" });
+        if (res.ok) return idx;
+      } catch (e) { /* 继续探测下一个 */ }
+    }
+    return null;
+  }
+
+  /* ---------- 数据源 B：Jekyll 构建时内嵌的数据（公网实时） ---------- */
+  function getJekyllData() {
+    const el = document.getElementById("jekyll-data");
+    if (!el) return null;
+    try {
+      const data = JSON.parse(el.textContent);
+      if (!Array.isArray(data.folders)) return null;
+      // 同一文件夹同时存在 index.html 和 index.htm 时去重，优先 index.html
+      const seen = new Map();
+      for (const f of data.folders) {
+        const prev = seen.get(f.name);
+        if (!prev || (prev.idx === "index.htm" && f.idx === "index.html")) seen.set(f.name, f);
+      }
+      return [...seen.values()];
+    } catch (e) { return null; }
+  }
+
+  /* ---------- 主流程 ---------- */
+  async function main() {
+    msgEl.classList.remove("show");
+    summaryEl.textContent = "";
+    listEl.innerHTML = '<div class="empty">正在扫描…</div>';
+
+    let entries = null;
+
+    // A: 本地服务器目录列表（本地 python -m http.server 场景）
+    try {
+      const dirs = await parseRoot();
+      entries = await Promise.all(
+        dirs
+          .sort((a, b) => a.name.localeCompare(b.name, "zh"))
+          .map(async (d) => ({ name: d.name, href: d.href, idx: await probeIndex(d.href) }))
+      );
+    } catch (e) {
+      // B: Jekyll 构建时注入的文件夹列表（GitHub Pages 公网场景，实时）
+      const jd = getJekyllData();
+      if (jd && jd.length) {
+        entries = jd.map((f) => ({ name: f.name, href: f.name + "/", idx: f.idx }));
+      }
+    }
+
+    if (!entries) {
+      msgEl.innerHTML =
+        `无法获取文件夹列表。<br>本页有两种使用方式：<br>
+         ① 本地：运行 <code>python -m http.server 8000</code> 后访问 <code>http://localhost:8000/list.html</code><br>
+         ② 公网：部署到 GitHub Pages（构建时自动生成文件夹列表）`;
+      msgEl.classList.add("show");
+      listEl.innerHTML = "";
+      return;
+    }
+
+    render(entries);
+  }
+
+  function render(entries) {
+    // 只保留有 index 的文件夹
+    entries = entries.filter((e) => e.idx);
+
+    listEl.innerHTML = "";
+    if (!entries.length) {
+      summaryEl.textContent = "";
+      listEl.innerHTML = '<div class="empty">没有找到包含 index 页面的文件夹</div>';
+      return;
+    }
+
+    summaryEl.textContent = `共 ${entries.length} 个文件夹`;
+
+    entries.forEach((e) => {
+      const a = document.createElement("a");
+      a.className = "card";
+      a.href = e.href + e.idx;
+      a.innerHTML =
+        `<span class="name">📂 ${esc(e.name)}</span>` +
+        `<span class="go">打开 ↗</span>`;
+      listEl.appendChild(a);
+    });
+  }
+
+  document.getElementById("refreshBtn").addEventListener("click", main);
+  main();
+})();
+</script>
+</body>
+</html>

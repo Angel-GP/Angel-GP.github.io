@@ -1,0 +1,974 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>🌌 黑洞模拟 · 引力透镜与吸积盘</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body {
+    width: 100%; height: 100%;
+    overflow: hidden;
+    background: #000;
+    font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+    color: #dbe4f0;
+    touch-action: none;
+    -webkit-user-select: none; user-select: none;
+  }
+  canvas { display: block; width: 100%; height: 100%; image-rendering: auto; cursor: grab; }
+  canvas.dragging { cursor: grabbing; }
+
+  .glass {
+    background: rgba(10, 14, 22, .72);
+    backdrop-filter: blur(8px);
+    border: 1px solid rgba(255,255,255,.12);
+    border-radius: 12px;
+    box-shadow: 0 8px 30px rgba(0,0,0,.5);
+  }
+
+  #hud { position: fixed; top: 14px; left: 14px; z-index: 5; padding: 12px 16px; max-width: 320px; pointer-events: auto; }
+  #hud h1 { font-size: 1.05rem; letter-spacing: 1px; margin-bottom: 2px; }
+  #hud .sub { font-size: .72rem; color: #8fa0bd; margin-bottom: 8px; }
+  #hud .stat { font-size: .74rem; color: #aebdd6; line-height: 1.7; font-family: Consolas, monospace; }
+  #hud .stat b { color: #ffd166; font-weight: 600; }
+  #hud .hint { font-size: .7rem; color: #6d7d99; margin-top: 8px; line-height: 1.6; }
+
+  #panelBtn {
+    position: fixed; right: 14px; bottom: 14px; z-index: 6;
+    padding: 9px 16px; font: inherit; font-size: .85rem;
+    color: #dbe4f0; cursor: pointer;
+  }
+  #panel {
+    position: fixed; right: 14px; bottom: 60px; z-index: 6;
+    width: min(88vw, 300px); max-height: 70vh; overflow-y: auto;
+    padding: 14px 16px; font-size: .8rem;
+    display: none;
+  }
+  #panel.open { display: block; }
+  #panel h3 { font-size: .85rem; color: #ffd166; margin: 10px 0 6px; }
+  #panel h3:first-child { margin-top: 0; }
+  .row { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin: 6px 0; }
+  .row label { color: #aebdd6; white-space: nowrap; }
+  .row output { font-family: Consolas, monospace; color: #ffd166; min-width: 38px; text-align: right; }
+  .row input[type=range] { flex: 1; accent-color: #ffd166; }
+  .row select, .row button {
+    flex: 1; font: inherit; font-size: .78rem;
+    background: #141c2b; color: #dbe4f0;
+    border: 1px solid #2c3a52; border-radius: 6px; padding: 5px 8px;
+  }
+  .chk { display: flex; align-items: center; gap: 8px; margin: 6px 0; color: #aebdd6; }
+  .chk input { accent-color: #ffd166; }
+  #resetBtn { display: block; margin: 10px auto 2px; padding: 7px 22px; font: inherit; font-size: .8rem;
+    background: linear-gradient(180deg, #4a9eff, #2f6fd6); color: #fff; border: none; border-radius: 999px; cursor: pointer; }
+
+  #phys {
+    position: fixed; left: 14px; bottom: 14px; z-index: 5;
+    padding: 10px 14px; font-size: .74rem; line-height: 1.8; color: #aebdd6;
+    max-width: min(78vw, 430px);
+  }
+  #phys b { color: #ffd166; }
+  #phys .x { color: #5a6d8c; font-size: .7rem; }
+  #physToggle { cursor: pointer; color: #ffd166; }
+
+  #load {
+    position: fixed; inset: 0; z-index: 20;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    background: radial-gradient(1200px 700px at 50% 40%, #0b1220, #05070d);
+  }
+  #load .t { font-size: 1.3rem; letter-spacing: 3px; margin-bottom: 6px; }
+  #load .s { font-size: .8rem; color: #7d8aa5; margin-bottom: 18px; }
+  #load .bar { width: min(70vw, 420px); height: 6px; background: #141c2b; border-radius: 999px; overflow: hidden; }
+  #load .bar i { display: block; height: 100%; width: 0; background: linear-gradient(90deg, #4a9eff, #ffd166); border-radius: 999px; transition: width .1s; }
+  #load .p { font-size: .75rem; color: #8fa0bd; margin-top: 10px; font-family: Consolas, monospace; }
+  #load.hidden { display: none; }
+</style>
+</head>
+<body>
+<canvas id="cv"></canvas>
+
+<div class="glass" id="hud">
+  <h1>🌌 黑洞模拟</h1>
+  <div class="sub">Schwarzschild 黑洞 · 光线追踪 + 相对论多普勒效应</div>
+  <div class="stat" id="hudStat"></div>
+  <div class="hint">🖱 拖拽旋转视角 · 滚轮变焦 · Q/E 滚转 · 双击重置<br>右下「参数」可调吸积盘与画质</div>
+</div>
+
+<div class="glass" id="phys">
+  <span id="physToggle">📖 物理速览 ▾</span>
+  <div id="physBody">
+    <b>事件视界</b> r = 2M —— 中央黑域，光也无法逃逸<br>
+    <b>光子环</b> r = 3M —— 阴影边缘的亮环，光子绕黑洞盘旋多圈<br>
+    <b>ISCO</b> r = 6M —— 吸积盘最内稳定轨道（默认盘内缘）<br>
+    <b>多普勒效应</b> —— 盘一侧冲向观测者更亮更蓝，另一侧远离更暗更红<br>
+    <b>引力红移</b> —— 越靠近视界的光子能量损失越大<br>
+    <b>引力透镜</b> —— 黑洞背面的盘与星空被弯曲到阴影上方/下方可见
+    <div class="x">光路为 Schwarzschild 测地线数值积分（RK4），亮度按 I/ν³ 不变量加权 g³</div>
+  </div>
+</div>
+
+<button class="glass" id="panelBtn">⚙ 参数</button>
+<div class="glass" id="panel">
+  <h3>吸积盘</h3>
+  <div class="row"><label>内半径</label><input type="range" id="rin" min="3" max="15" step="0.5" value="6"><output id="rinV">6M</output></div>
+  <div class="row"><label>外半径</label><input type="range" id="rout" min="8" max="40" step="1" value="22"><output id="routV">22M</output></div>
+  <div class="row"><label>亮度指数</label><input type="range" id="alpha" min="0.5" max="3" step="0.1" value="2"><output id="alphaV">2.0</output></div>
+  <div class="row"><label>内缘色温</label><input type="range" id="t0" min="3000" max="12000" step="250" value="8500"><output id="t0V">8500K</output></div>
+  <div class="row"><label>曝光</label><input type="range" id="expo" min="0.5" max="6" step="0.1" value="4.0"><output id="expoV">4.0×</output></div>
+  <div class="row"><label>旋转方向</label><select id="dir"><option value="1">逆时针（俯视）</option><option value="-1">顺时针（俯视）</option></select></div>
+  <div class="row"><label>盘模式</label><select id="mode"><option value="0">半透明叠加</option><option value="1">不透明（近侧）</option></select></div>
+  <h3>背景与画质</h3>
+  <div class="chk"><input type="checkbox" id="orbit" checked><label for="orbit">自动环绕动画</label></div>
+  <div class="chk"><input type="checkbox" id="stars" checked><label for="stars">背景星空</label></div>
+  <div class="chk"><input type="checkbox" id="galaxy" checked><label for="galaxy">银河带</label></div>
+  <div class="row"><label>渲染质量</label><select id="qsel">
+    <option value="auto" selected>自动（帧率自适应）</option>
+    <option value="0">高 960×540</option>
+    <option value="1">中 800×450</option>
+    <option value="2">低 640×360</option>
+    <option value="3">省电 480×270</option>
+  </select></div>
+  <button id="resetBtn">重置视角</button>
+</div>
+
+<div id="load">
+  <div class="t">🌌 黑洞模拟</div>
+  <div class="s">正在计算时空与光路…</div>
+  <div class="bar"><i id="loadBar"></i></div>
+  <div class="p" id="loadP">初始化</div>
+</div>
+
+<script>
+"use strict";
+/* ==================================================================
+   黑洞模拟 · Schwarzschild 光线追踪
+   物理：事件视界 2M / 光子环 3M / ISCO 6M / 开普勒盘多普勒增强 / 引力红移
+   方法：轨道平面法测地线积分（d²u/dφ² = 1.5u² − u）+ 天空球光路 LUT + 解析偏折
+   ================================================================== */
+
+/* ---------------- 常量 ---------------- */
+const M = 1, RS = 2, CAM_D = 60, CAM_ELEV = 0.35;   // 相机距离 60M，抬高 20°（俯视构图：盘像完整可见）
+const NW = 512, NH = 256, MAX_HITS = 4;             // 光路查找表分辨率（0.35°/格）
+const B_LUT = 25, B_ANAL = 60;                      // 解析偏折区间 (25, 60]
+const DEG = Math.PI / 180, TAU = Math.PI * 2;
+
+/* ---------------- 画布 ---------------- */
+const canvas = document.getElementById("cv");
+const ctx = canvas.getContext("2d");
+let CW = 0, CH = 0, img = null, img32 = null;
+
+/* ---------------- 工具 ---------------- */
+const clamp = (v, a, b) => v < a ? a : (v > b ? b : v);
+const lerp = (a, b, t) => a + (b - a) * t;
+function mulberry32(seed) {
+  let s = seed >>> 0;
+  return function () {
+    s |= 0; s = (s + 0x6D2B79F5) | 0;
+    let t = Math.imul(s ^ (s >>> 15), 1 | s);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+const rnd = mulberry32(20260218);
+
+/* ---------------- 相机 ---------------- */
+let yaw = 0, pitch = 0.22, roll = 0, fov = 40;    // 相机 20° 俯角 + 视线 13° = 总俯视 33° 经典构图
+let animTime = 0, introT = 0, autoOrbit = true, lastInputT = 0;
+let camY = Math.sin(CAM_ELEV) * CAM_D, camX = Math.cos(CAM_ELEV) * CAM_D;   // 相机略高于盘面
+
+/* ---------------- 纹理（离屏生成） ---------------- */
+let skyTex = null, diskTex = null;
+function makeCanvas(w, h) {
+  const c = document.createElement("canvas");
+  c.width = w; c.height = h;
+  return c;
+}
+function getImage(c) { return c.getContext("2d").getImageData(0, 0, c.width, c.height); }
+
+// 黑体色温近似
+function blackbodyRGB(T) {
+  const t = T / 100;
+  let r, g, b;
+  if (t <= 66) r = 255; else r = clamp(329.698 * Math.pow(t - 60, -0.1332), 0, 255);
+  if (t <= 66) g = clamp(99.47 * Math.log(t) - 161.12, 0, 255); else g = clamp(288.12 * Math.pow(t - 60, -0.0755), 0, 255);
+  if (t >= 66) b = 255; else if (t <= 19) b = 0; else b = clamp(138.52 * Math.log(t - 10) - 305.04, 0, 255);
+  return [r, g, b];
+}
+
+// 星空 + 银河背景（equirectangular：u=方位 0..2π，v=仰角 -π/2..π/2）
+// 分块异步生成（不冻结 UI）
+let skyProgress = 0, diskProgress = 0;
+function buildSky(withGalaxy, onDone) {
+  const SW = 2048, SH = 1024;
+  const c = makeCanvas(SW, SH);
+  const g = c.getContext("2d");
+  const d = g.createImageData(SW, SH);
+  const px = d.data;
+  // 银河大圆法线（带一点倾角）
+  const ng = { x: 0.22, y: 1, z: 0.35 };
+  const nl = Math.hypot(ng.x, ng.y, ng.z);
+  ng.x /= nl; ng.y /= nl; ng.z /= nl;
+  const starSeed = mulberry32(777);
+  // 预生成星点（画成小光点）
+  const stars = [];
+  for (let i = 0; i < 4200; i++) {
+    const u = starSeed() * TAU, v = Math.asin(starSeed() * 2 - 1);
+    const mag = Math.pow(starSeed(), 3);   // 越暗越多
+    const hot = starSeed();
+    const col = hot < .12 ? [255, 214, 170] : hot < .2 ? [180, 205, 255] : [255, 255, 255];
+    stars.push({ u, v, mag, col });
+  }
+  // 星云团
+  const nebulas = [];
+  for (let i = 0; i < 9; i++) {
+    nebulas.push({
+      u: starSeed() * TAU, v: Math.asin(starSeed() * 2 - 1), s: .06 + starSeed() * .12,
+      col: [[120, 80, 160], [60, 110, 180], [170, 90, 120], [80, 140, 150]][i % 4],
+      k: .05 + starSeed() * .07
+    });
+  }
+  let y = 0;
+  const CHUNK = 32;
+  function step() {
+    const end = Math.min(y + CHUNK, SH);
+    for (; y < end; y++) {
+      const v = (1 - (y + .5) / SH) * Math.PI - Math.PI / 2;   // 仰角
+      const sv = Math.sin(v), cv = Math.cos(v);
+      for (let x = 0; x < SW; x++) {
+        const u = (x + .5) / SW * TAU;
+        const dx = cv * Math.cos(u), dy = sv, dz = cv * Math.sin(u);
+        // 银河带亮度
+        const dotg = dx * ng.x + dy * ng.y + dz * ng.z;
+        const gal = withGalaxy ? Math.exp(-dotg * dotg / (2 * .045 * .045)) * (0.55 + 0.45 * Math.sin(u * 7 + dotg * 40)) : 0;
+        const noise = 0.5 + 0.5 * Math.sin(u * 31.7 + v * 17.3) * Math.sin(u * 13.1 + v * 7.7);
+        let R = 12 + 18 * noise, G = 16 + 22 * noise, B = 32 + 34 * noise;
+        // 银河
+        R += gal * (70 + 50 * noise); G += gal * (64 + 42 * noise); B += gal * (70 + 38 * noise);
+        // 星云
+        for (const nb of nebulas) {
+          let du = u - nb.u, dv = v - nb.v;
+          du = Math.atan2(Math.sin(du), Math.cos(du));
+          const dist = du * du + dv * dv;
+          const f = Math.exp(-dist / (2 * nb.s * nb.s)) * nb.k;
+          R += f * nb.col[0]; G += f * nb.col[1]; B += f * nb.col[2];
+        }
+        const o = (y * SW + x) * 4;
+        px[o] = clamp(R, 0, 255); px[o + 1] = clamp(G, 0, 255); px[o + 2] = clamp(B, 0, 255); px[o + 3] = 255;
+      }
+    }
+    skyProgress = y / SH;
+    setLoad(0.02 + skyProgress * 0.1, "生成星空背景… " + (skyProgress * 100).toFixed(0) + "%");
+    if (y < SH) setTimeout(step, 0);
+    else {
+      g.putImageData(d, 0, 0);
+      // 星点
+      for (const s of stars) {
+        const sx = (s.u / TAU) * SW, sy = (0.5 - (s.v + Math.PI / 2) / Math.PI) * SH;
+        const r0 = .6 + s.mag * 2.4;
+        const grd = g.createRadialGradient(sx, sy, 0, sx, sy, r0 * 5);
+        const a = .25 + s.mag * .75;
+        grd.addColorStop(0, "rgba(" + s.col[0] + "," + s.col[1] + "," + s.col[2] + "," + a + ")");
+        grd.addColorStop(.25, "rgba(" + s.col[0] + "," + s.col[1] + "," + s.col[2] + "," + a * .4 + ")");
+        grd.addColorStop(1, "rgba(0,0,0,0)");
+        g.fillStyle = grd;
+        g.beginPath(); g.arc(sx, sy, r0 * 5, 0, TAU); g.fill();
+      }
+      skyTex = c;
+      onDone && onDone();
+    }
+  }
+  step();
+}
+
+// 吸积盘纹理（1024×256：u=方位 φ，v=半径 r）分块异步生成
+let diskParams = { rin: 6, rout: 22, alpha: 2, t0: 8500, dir: 1, exposure: 4.0 };
+function buildDisk(onDone) {
+  const DW = 1024, DH = 256;
+  const c = makeCanvas(DW, DH);
+  const g = c.getContext("2d");
+  const d = g.createImageData(DW, DH);
+  const px = d.data;
+  const { rin, rout, alpha, t0 } = diskParams;
+  let y = 0;
+  const CHUNK = 16;
+  function step() {
+    const end = Math.min(y + CHUNK, DH);
+    for (; y < end; y++) {
+      const r = rin + (rout - rin) * (y + .5) / DH;
+      const T = t0 * Math.pow(r / rin, -0.75);
+      const [tr, tg, tb] = blackbodyRGB(T);
+      const I = Math.pow(r, -alpha);
+      // 内外缘平滑
+      const edgeIn = clamp((r - rin) / 2.5, 0, 1);
+      const edgeOut = clamp((rout - r) / 3, 0, 1);
+      const base = I * edgeIn * edgeOut;
+      for (let x = 0; x < DW; x++) {
+        const phi = x / DW * TAU;
+        // 螺旋臂 + 环纹噪声
+        const arm = 1 + .4 * Math.sin(phi + 3.1 * Math.log(r / rin))
+          + .18 * Math.sin(phi * 5 + r * 1.7) + .12 * Math.sin(phi * 13 - r * .9);
+        const o = (y * DW + x) * 4;
+        const v = clamp(base * arm * 22000, 0, 255);   // 发射率：内缘白热、外缘暗红
+        px[o] = clamp(tr * v / 255, 0, 255);
+        px[o + 1] = clamp(tg * v / 255, 0, 255);
+        px[o + 2] = clamp(tb * v / 255, 0, 255);
+        px[o + 3] = 255;
+      }
+    }
+    diskProgress = y / DH;
+    setLoad(0.12 + diskProgress * 0.08, "生成吸积盘纹理… " + (diskProgress * 100).toFixed(0) + "%");
+    if (y < DH) setTimeout(step, 0);
+    else {
+      g.putImageData(d, 0, 0);
+      diskTex = c;
+      diskD = getImage(diskTex);
+      onDone && onDone();
+    }
+  }
+  step();
+}
+
+/* ---------------- 光线追踪（轨道平面法） ---------------- */
+// 返回 { type: 0 背景/1 盘/2 黑洞, dir:[x,y,z] 背景出射方向, hits:[{r,g3,phi}] }
+function traceRay(kx, ky, kz) {
+  const P0x = camX, P0y = camY, P0z = 0;
+  // 轨道角动量（E=1 → 碰撞参数 b）
+  const hx = P0y * kz - P0z * ky, hy = P0z * kx - P0x * kz, hz = P0x * ky - P0y * kx;
+  const b = Math.hypot(hx, hy, hz);
+  if (b < 1e-9) return { type: 2, hits: [], dir: null };
+  // 阴影内（能量高于势垒）：必然落入视界，解析判定（b<√27 即 1/b² > 1/27）
+  if (b < 5.15) return { type: 2, hits: [], dir: null };
+  // 光子环窄带解析合成（能量判据 + 环方位几何，避免奇异区慢积分）
+  if (b > 5.15 && b < 5.27) {
+    if (b < Math.sqrt(27)) return { type: 2, hits: [], dir: null };
+    const hx1e = hx / b, hy1e = hy / b;
+    const phiRing = Math.atan2(-hx1e, hy1e);
+    return { type: 1, hits: [{ r: 3.08, g3: 1.2, phi: phiRing }], dir: [kx, ky, kz] };
+  }
+  const hx1 = hx / b, hy1 = hy / b, hz1 = hz / b;
+  // ê1：P0 在轨道平面投影的单位向量；ê2 = ĥ × ê1
+  const pd = P0x * hx1 + P0y * hy1 + P0z * hz1;
+  let e1x = P0x - pd * hx1, e1y = P0y - pd * hy1, e1z = P0z - pd * hz1;
+  const l1 = Math.hypot(e1x, e1y, e1z) || 1;
+  e1x /= l1; e1y /= l1; e1z /= l1;
+  const e2x = hy1 * e1z - hz1 * e1y, e2y = hz1 * e1x - hx1 * e1z, e2z = hx1 * e1y - hy1 * e1x;
+  // 初始（u=1/r, v=du/dφ）
+  const r0 = CAM_D;
+  const prk = (P0x * kx + P0y * ky + P0z * kz) / r0;
+  let U = 1 / r0, V = -prk / b;
+  let phi = 0;
+  const hits = [];
+  let lastZ = P0z, lastU = U, lastPhi = 0, steps = 0;
+  const inPlane = Math.abs(hz1) > 0.9999;   // 视线在盘面内 → 盘不可见（零测度）
+  while (true) {
+    // RK4：du/dφ = v, dv/dφ = 3u² − u（Schwarzschild，M=1 单位）
+    const r = 1 / U;
+    const h = clamp(0.016 + r * 0.0007, 0.016, 0.06);
+    const G = (u) => 3 * u * u - u;
+    const f1 = V, g1 = G(U);
+    const f2 = V + h * g1 / 2, g2 = G(U + h * f1 / 2);
+    const f3 = V + h * g2 / 2, g3 = G(U + h * f2 / 2);
+    const f4 = V + h * g3, g4 = G(U + h * f3);
+    const newU = U + h / 6 * (f1 + 2 * f2 + 2 * f3 + f4);
+    const newV = V + h / 6 * (g1 + 2 * g2 + 2 * g3 + g4);
+    const newPhi = phi + h;
+    const c1 = Math.cos(newPhi), s1 = Math.sin(newPhi);
+    const rn = 1 / newU;
+    const wz = rn * (c1 * e1z + s1 * e2z);
+    // 盘交点（赤道面 z=0 过零）
+    if (!inPlane && steps > 1 && ((wz < 0) !== (lastZ < 0))) {
+      const t = -lastZ / (wz - lastZ);
+      const ph = lerp(lastPhi, newPhi, t);
+      const uu = lerp(lastU, newU, t);
+      const vv = lerp(V, newV, t);
+      const rr = 1 / uu;
+      if (rr > 2.5 && rr < CAM_D - 1) {
+        const c2 = Math.cos(ph), s2 = Math.sin(ph);
+        const rx = c2 * e1x + s2 * e2x, ry = c2 * e1y + s2 * e2y, rz = c2 * e1z + s2 * e2z;   // r̂
+        // 追迹方向 k̂ = normalize(−v·ê_r + u·ê_φ)
+        const erx = rx, ery = ry, erz = rz;
+        const epx = -s2 * e1x + c2 * e2x, epy = -s2 * e1y + c2 * e2y, epz = -s2 * e1z + c2 * e2z;
+        let kx2 = -vv * erx + uu * epx, ky2 = -vv * ery + uu * epy, kz2 = -vv * erz + uu * epz;
+        const kl = Math.hypot(kx2, ky2, kz2) || 1;
+        kx2 /= kl; ky2 /= kl; kz2 /= kl;
+        // 光子方向 n = −k̂；开普勒 v̂ = ẑ×r̂（盘内 r̂⊥ẑ）
+        const vx2 = -ry, vy2 = rx, vz2 = 0;
+        let g;
+        const gg = Math.sqrt(Math.max(0, 1 - 2 / rr));   // 引力红移因子
+        if (rr > 3.02) {
+          const v = Math.sqrt(1 / rr) / Math.sqrt(1 - 2 / rr);
+          const gam = 1 / Math.sqrt(1 - v * v);
+          const cosA = -(kx2 * vx2 + ky2 * vy2 + kz2 * vz2) * diskParams.dir;   // n·v̂
+          g = gg / (gam * (1 - v * cosA));
+        } else {
+          g = gg;   // ISCO 内侧不做开普勒近似
+        }
+        hits.push({ r: rr, g3: g * g * g, phi: Math.atan2(ry, rx) });
+      }
+    }
+    lastZ = wz; lastU = newU; lastPhi = newPhi; U = newU; V = newV; phi = newPhi;
+    steps++;
+    // 近势垒解析分支：能量 1/b² 与势垒 1/27 比较（光子环奇异区，避免数值慢区）
+    if (Math.abs(V) < 0.025 && U > 0.27) {
+      if (b < Math.sqrt(27)) return { type: 2, hits, dir: null };   // 落入视界
+      V = -Math.max(Math.abs(V), 0.0005);                           // 势垒反射：u 掉头，继续积分
+    }
+    // 终止
+    if (U > 0.495) return { type: 2, hits, dir: null };                    // r < 2.02 捕获
+    if (U < 1 / 55 && V < 0) {                                             // 逃逸
+      const c2 = Math.cos(phi), s2 = Math.sin(phi);
+      const erx = c2 * e1x + s2 * e2x, ery = c2 * e1y + s2 * e2y, erz = c2 * e1z + s2 * e2z;
+      const epx = -s2 * e1x + c2 * e2x, epy = -s2 * e1y + c2 * e2y, epz = -s2 * e1z + c2 * e2z;
+      let kx2 = -V * erx + U * epx, ky2 = -V * ery + U * epy, kz2 = -V * erz + U * epz;
+      const kl = Math.hypot(kx2, ky2, kz2) || 1;
+      return { type: hits.length ? 1 : 0, hits, dir: [kx2 / kl, ky2 / kl, kz2 / kl] };
+    }
+    if (phi > 3 * Math.PI || steps > 3000) {                         // 光子环缠绕
+      if (U > 1 / 3.5) return { type: 2, hits, dir: null };
+      const c2 = Math.cos(phi), s2 = Math.sin(phi);
+      const erx = c2 * e1x + s2 * e2x, ery = c2 * e1y + s2 * e2y, erz = c2 * e1z + s2 * e2z;
+      const epx = -s2 * e1x + c2 * e2x, epy = -s2 * e1y + c2 * e2y, epz = -s2 * e1z + c2 * e2z;
+      let kx2 = -V * erx + U * epx, ky2 = -V * ery + U * epy, kz2 = -V * erz + U * epz;
+      const kl = Math.hypot(kx2, ky2, kz2) || 1;
+      return { type: hits.length ? 1 : 0, hits, dir: [kx2 / kl, ky2 / kl, kz2 / kl] };
+    }
+  }
+}
+
+/* ---------------- 光路查找表（天空球 LUT） ---------------- */
+const lutType = new Uint8Array(NW * NH);
+const lutDir = new Float32Array(NW * NH * 3);
+const lutCount = new Uint8Array(NW * NH);
+const lutR = new Float32Array(NW * NH * MAX_HITS);
+const lutG3 = new Float32Array(NW * NH * MAX_HITS);
+const lutPhi = new Float32Array(NW * NH * MAX_HITS);
+
+function lutIndex(i, j) { return j * NW + i; }
+
+// 分块预计算（每块 C 条，setTimeout 让步）
+let lutProgress = 0, lutDone = false, lutChunk = 0, lutTotal = 0;
+function precomputeLUT(onDone) {
+  const todo = [];
+  for (let j = 0; j < NH; j++) {
+    for (let i = 0; i < NW; i++) {
+      const th = (j + .5) / NH * Math.PI, ph = (i + .5) / NW * TAU;
+      const kx = Math.sin(th) * Math.cos(ph), ky = Math.cos(th), kz = Math.sin(th) * Math.sin(ph);
+      const b = Math.hypot(camY * kz, -camX * kz, camX * ky - camY * kx);
+      const idx = lutIndex(i, j);
+      if (b > B_LUT) {
+        lutType[idx] = 0;
+        lutDir[idx * 3] = kx; lutDir[idx * 3 + 1] = ky; lutDir[idx * 3 + 2] = kz;
+      } else {
+        todo.push({ i, j, kx, ky, kz });
+      }
+    }
+  }
+  lutTotal = todo.length;
+  lutChunk = 0;
+  lutDone = false;
+  const CHUNK = 400;
+  function step() {
+    const end = Math.min(lutChunk + CHUNK, todo.length);
+    for (let n = lutChunk; n < end; n++) {
+      const t = todo[n];
+      const r = traceRay(t.kx, t.ky, t.kz);
+      const idx = lutIndex(t.i, t.j);
+      lutType[idx] = r.type;
+      if (r.dir) {
+        lutDir[idx * 3] = r.dir[0]; lutDir[idx * 3 + 1] = r.dir[1]; lutDir[idx * 3 + 2] = r.dir[2];
+      }
+      lutCount[idx] = Math.min(MAX_HITS, r.hits.length);
+      for (let h = 0; h < lutCount[idx]; h++) {
+        lutR[idx * MAX_HITS + h] = r.hits[h].r;
+        lutG3[idx * MAX_HITS + h] = r.hits[h].g3;
+        lutPhi[idx * MAX_HITS + h] = r.hits[h].phi;
+      }
+    }
+    lutChunk = end;
+    lutProgress = todo.length ? lutChunk / todo.length : 1;
+    if (lutChunk < todo.length) {
+      setTimeout(step, 0);
+    } else {
+      // 粗表完成后进入细表（阴影/光子环加密区域）
+      precomputeFine(() => {
+        lutDone = true;
+        onDone && onDone();
+      });
+    }
+  }
+  step();
+}
+
+/* ---------------- 细光路表（切平面加密：阴影 + 光子环 + 盘主像） ---------------- */
+const NF = 160;                                      // 细网格 160×160（0.0675°/格）
+const FINE_HALF = Math.tan(5.4 * DEG);               // 切平面覆盖 ±5.4°（阴影 + 光子环）
+const COS_HALF = Math.cos(5.4 * DEG);
+// 切平面基：d0 指向黑洞中心，t1 水平，t2 竖直
+const D0X = -Math.cos(CAM_ELEV), D0Y = -Math.sin(CAM_ELEV), D0Z = 0;
+const T1X = 0, T1Y = 0, T1Z = -1;
+const T2X = Math.sin(CAM_ELEV), T2Y = -Math.cos(CAM_ELEV), T2Z = 0;
+const fineType = new Uint8Array(NF * NF);
+const fineDir = new Float32Array(NF * NF * 3);
+const fineCount = new Uint8Array(NF * NF);
+const fineR = new Float32Array(NF * NF * MAX_HITS);
+const fineG3 = new Float32Array(NF * NF * MAX_HITS);
+const finePhi = new Float32Array(NF * NF * MAX_HITS);
+let fineProgress = 0;
+
+function precomputeFine(onDone) {
+  const CHUNK = 1500;
+  let n = 0;
+  function step() {
+    const end = Math.min(n + CHUNK, NF * NF);
+    for (; n < end; n++) {
+      const i = n % NF, j = (n / NF) | 0;
+      const u = ((i + .5) / NF * 2 - 1) * FINE_HALF;
+      const v = ((j + .5) / NF * 2 - 1) * FINE_HALF;
+      let dx = D0X + u * T1X + v * T2X;
+      let dy = D0Y + u * T1Y + v * T2Y;
+      let dz = D0Z + u * T1Z + v * T2Z;
+      const l = Math.hypot(dx, dy, dz);
+      dx /= l; dy /= l; dz /= l;
+      const r = traceRay(dx, dy, dz);
+      fineType[n] = r.type;
+      if (r.dir) {
+        fineDir[n * 3] = r.dir[0]; fineDir[n * 3 + 1] = r.dir[1]; fineDir[n * 3 + 2] = r.dir[2];
+      }
+      fineCount[n] = Math.min(MAX_HITS, r.hits.length);
+      for (let h = 0; h < fineCount[n]; h++) {
+        fineR[n * MAX_HITS + h] = r.hits[h].r;
+        fineG3[n * MAX_HITS + h] = r.hits[h].g3;
+        finePhi[n * MAX_HITS + h] = r.hits[h].phi;
+      }
+    }
+    fineProgress = n / (NF * NF);
+    if (n < NF * NF) setTimeout(step, 0);
+    else onDone && onDone();
+  }
+  step();
+}
+
+/* ---------------- 渲染 ---------------- */
+let diskD = null;
+let starsOn = true, galaxyOn = true, diskMode = 0;
+
+// 预存天空像素数组
+let skyData = null;
+function prepareSkyData() {
+  const c = skyTex, g = c.getContext("2d");
+  skyData = g.getImageData(0, 0, c.width, c.height).data;
+  diskD = diskTex.getContext("2d").getImageData(0, 0, diskTex.width, diskTex.height).data;
+}
+
+function sampleTex(data, TW, TH, fx, fy, wrap) {
+  let x0 = Math.floor(fx), y0 = Math.floor(fy);
+  const tx = fx - x0, ty = fy - y0;
+  let x1 = x0 + 1, y1 = y0 + 1;
+  if (wrap) { x0 = (x0 % TW + TW) % TW; x1 = (x1 % TW + TW) % TW; }
+  else { x0 = clamp(x0, 0, TW - 1); x1 = clamp(x1, 0, TW - 1); }
+  y0 = clamp(y0, 0, TH - 1); y1 = clamp(y1, 0, TH - 1);
+  const i00 = (y0 * TW + x0) * 4, i10 = (y0 * TW + x1) * 4, i01 = (y1 * TW + x0) * 4, i11 = (y1 * TW + x1) * 4;
+  const w00 = (1 - tx) * (1 - ty), w10 = tx * (1 - ty), w01 = (1 - tx) * ty, w11 = tx * ty;
+  return [
+    data[i00] * w00 + data[i10] * w10 + data[i01] * w01 + data[i11] * w11,
+    data[i00 + 1] * w00 + data[i10 + 1] * w10 + data[i01 + 1] * w01 + data[i11 + 1] * w11,
+    data[i00 + 2] * w00 + data[i10 + 2] * w10 + data[i01 + 2] * w01 + data[i11 + 2] * w11
+  ];
+}
+
+function sampleLUT(dx, dy, dz) {
+  const th = Math.acos(clamp(dy, -1, 1));
+  let ph = Math.atan2(dz, dx);
+  if (ph < 0) ph += TAU;
+  const u = ph / TAU * NW, v = th / Math.PI * NH;
+  const i0 = Math.floor(u - .5), j0 = Math.floor(v - .5);
+  const tu = u - .5 - i0, tv = v - .5 - j0;
+  const i1 = i0 + 1, j1 = j0 + 1;
+  const wi0 = (i0 % NW + NW) % NW, wi1 = (i1 % NW + NW) % NW;
+  const wj0 = clamp(j0, 0, NH - 1), wj1 = clamp(j1, 0, NH - 1);
+  const i00 = lutIndex(wi0, wj0), i10 = lutIndex(wi1, wj0), i01 = lutIndex(wi0, wj1), i11 = lutIndex(wi1, wj1);
+  // 四角类型一致才插值，否则最近邻（避免不同类型混叠糊边）
+  const t0 = lutType[i00], t1 = lutType[i10], t2 = lutType[i01], t3 = lutType[i11];
+  const uniform = t0 === t1 && t0 === t2 && t0 === t3;
+  const type = uniform ? t0 : lutType[i00];
+  const w00 = uniform ? (1 - tu) * (1 - tv) : 1;
+  const w10 = uniform ? tu * (1 - tv) : 0;
+  const w01 = uniform ? (1 - tu) * tv : 0;
+  const w11 = uniform ? tu * tv : 0;
+  if (type === 2) return { type: 2, r: 0, g: 0, b: 0 };
+  if (type === 0) {
+    const dx2 = lutDir[i00 * 3], dy2 = lutDir[i00 * 3 + 1], dz2 = lutDir[i00 * 3 + 2];
+    return { type: 0, dir: [dx2, dy2, dz2], r: 0, g: 0, b: 0 };
+  }
+  // 盘：插值命中数据
+  let R = 0, G = 0, B = 0;
+  const DW = diskTex.width, DH = diskTex.height;
+  const { rin, rout, exposure } = diskParams;
+  for (let h = 0; h < MAX_HITS; h++) {
+    const rr = lutR[i00 * MAX_HITS + h] * w00 + lutR[i10 * MAX_HITS + h] * w10 + lutR[i01 * MAX_HITS + h] * w01 + lutR[i11 * MAX_HITS + h] * w11;
+    if (rr < rin || rr > rout || rr < 2.6) continue;
+    const g3 = lutG3[i00 * MAX_HITS + h] * w00 + lutG3[i10 * MAX_HITS + h] * w10 + lutG3[i01 * MAX_HITS + h] * w01 + lutG3[i11 * MAX_HITS + h] * w11;
+    let phh = lutPhi[i00 * MAX_HITS + h];
+    if (phh < 0) phh += TAU;
+    // 开普勒差速旋转 + 湍流流动（动画）
+    const flow = animTime * 0.4 * Math.pow(rr / rin, -1.5) + 0.015 * Math.sin(phh * 2 + rr * 1.3 - animTime * 2.2);
+    const fx = (phh / TAU + flow) * DW, fy = (rr - rin) / (rout - rin) * (DH - 1);
+    const [tr, tg, tb] = sampleTex(diskD, DW, DH, fx, fy, true);
+    R += tr * g3 * exposure; G += tg * g3 * exposure; B += tb * g3 * exposure;
+    if (diskMode === 1) break;   // 不透明：最近侧
+  }
+  // Reinhard 色调映射（防止近侧多普勒增强过曝成白糊）
+  R = 255 * R / (R + 150);
+  G = 255 * G / (G + 150);
+  B = 255 * B / (B + 150);
+  return { type: 1, r: R, g: G, b: B };
+}
+
+// 细光路表采样（切平面网格，阴影/光子环区域）
+function sampleLUTFine(dx, dy, dz) {
+  const dot = dx * D0X + dy * D0Y + dz * D0Z;
+  const u = (dx * T1X + dy * T1Y + dz * T1Z) / dot;
+  const v = (dx * T2X + dy * T2Y + dz * T2Z) / dot;
+  const fx = (u / FINE_HALF + 1) / 2 * NF, fy = (v / FINE_HALF + 1) / 2 * NF;
+  const i0 = Math.floor(fx - .5), j0 = Math.floor(fy - .5);
+  const tu = fx - .5 - i0, tv = fy - .5 - j0;
+  const x0 = clamp(i0, 0, NF - 1), x1 = clamp(i0 + 1, 0, NF - 1);
+  const y0 = clamp(j0, 0, NF - 1), y1 = clamp(j0 + 1, 0, NF - 1);
+  const i00 = y0 * NF + x0, i10 = y0 * NF + x1, i01 = y1 * NF + x0, i11 = y1 * NF + x1;
+  const t0 = fineType[i00], t1 = fineType[i10], t2 = fineType[i01], t3 = fineType[i11];
+  const uniform = t0 === t1 && t0 === t2 && t0 === t3;
+  const type = uniform ? t0 : fineType[i00];
+  const w00 = uniform ? (1 - tu) * (1 - tv) : 1;
+  const w10 = uniform ? tu * (1 - tv) : 0;
+  const w01 = uniform ? (1 - tu) * tv : 0;
+  const w11 = uniform ? tu * tv : 0;
+  if (type === 2) return { type: 2, r: 0, g: 0, b: 0 };
+  if (type === 0) {
+    return { type: 0, dir: [fineDir[i00 * 3], fineDir[i00 * 3 + 1], fineDir[i00 * 3 + 2]], r: 0, g: 0, b: 0 };
+  }
+  let R = 0, G = 0, B = 0;
+  const DW = diskTex.width, DH = diskTex.height;
+  const { rin, rout, exposure } = diskParams;
+  for (let h = 0; h < MAX_HITS; h++) {
+    const rr = fineR[i00 * MAX_HITS + h] * w00 + fineR[i10 * MAX_HITS + h] * w10 + fineR[i01 * MAX_HITS + h] * w01 + fineR[i11 * MAX_HITS + h] * w11;
+    if (rr < rin || rr > rout || rr < 2.6) continue;
+    const g3 = fineG3[i00 * MAX_HITS + h] * w00 + fineG3[i10 * MAX_HITS + h] * w10 + fineG3[i01 * MAX_HITS + h] * w01 + fineG3[i11 * MAX_HITS + h] * w11;
+    let phh = finePhi[i00 * MAX_HITS + h];
+    if (phh < 0) phh += TAU;
+    // 开普勒差速旋转 + 湍流流动（动画）
+    const flow = animTime * 0.4 * Math.pow(rr / rin, -1.5) + 0.015 * Math.sin(phh * 2 + rr * 1.3 - animTime * 2.2);
+    const fxx = (phh / TAU + flow) * DW, fyy = (rr - rin) / (rout - rin) * (DH - 1);
+    const [tr, tg, tb] = sampleTex(diskD, DW, DH, fxx, fyy, true);
+    R += tr * g3 * exposure; G += tg * g3 * exposure; B += tb * g3 * exposure;
+    if (diskMode === 1) break;
+  }
+  R = 255 * R / (R + 150);
+  G = 255 * G / (G + 150);
+  B = 255 * B / (B + 150);
+  return { type: 1, r: R, g: G, b: B };
+}
+
+function renderFrame() {
+  if (!skyData) return;
+  const W = CW, H = CH;
+  if (!img || img.width !== W || img.height !== H) {
+    img = ctx.createImageData(W, H);
+    img32 = new Uint32Array(img.data.buffer);
+  }
+  const fovY = fov * DEG;
+  const fovX = Math.atan(Math.tan(fovY / 2) * W / H) * 2;
+  const tanX = Math.tan(fovX / 2), tanY = Math.tan(fovY / 2);
+  const cr = Math.cos(roll), sr = Math.sin(roll);
+  const cp = Math.cos(pitch), sp = Math.sin(pitch);
+  const cy = Math.cos(yaw + Math.PI / 2), sy = Math.sin(yaw + Math.PI / 2);
+  const SW = skyTex.width, SH = skyTex.height;
+  const data = skyData;
+  for (let py = 0; py < H; py++) {
+    const v = (1 - (py + .5) / H * 2) * tanY;
+    for (let px = 0; px < W; px++) {
+      const u = ((px + .5) / W * 2 - 1) * tanX;
+      // 相机系方向（含 roll）
+      const xc = u * cr - v * sr, yc = u * sr + v * cr;
+      // pitch（绕 x）后 yaw（绕 y，基础 π/2）
+      const y2 = yc * cp - sp, z2 = yc * sp + cp;
+      let dx = xc * cy + z2 * sy, dy = y2, dz = -xc * sy + z2 * cy;
+      const dl = Math.hypot(dx, dy, dz);
+      dx /= dl; dy /= dl; dz /= dl;
+      // 碰撞参数（相机 p = (camX, camY, 0)，b = |p×d|）
+      const hx = camY * dz, hy = -camX * dz, hz = camX * dy - camY * dx;
+      const b = Math.hypot(hx, hy, hz);
+      let R = 0, G = 0, B = 0;
+      if (b > B_ANAL) {
+        // 背景直查
+        let uu = Math.atan2(dz, dx); if (uu < 0) uu += TAU;
+        const vv = Math.asin(clamp(dy, -1, 1));
+        const fx = uu / TAU * SW, fy = (0.5 - (vv + Math.PI / 2) / Math.PI) * SH;
+        if (starsOn) {
+          const c = sampleTex(data, SW, SH, fx, fy, true);
+          R = c[0]; G = c[1]; B = c[2];
+        }
+      } else if (b > B_LUT) {
+        // 解析二级偏折：k' = k − δ·(ĥ×k)
+        const delta = 4 / b + 15 * Math.PI / 4 / (b * b);
+        const hl = b || 1;
+        const hx1 = hx / hl, hy1 = hy / hl, hz1 = hz / hl;
+        const cx2 = hy1 * dz - hz1 * dy, cy2 = hz1 * dx - hx1 * dz, cz2 = hx1 * dy - hy1 * dx;
+        let ex = dx - delta * cx2, ey = dy - delta * cy2, ez = dz - delta * cz2;
+        const el = Math.hypot(ex, ey, ez);
+        ex /= el; ey /= el; ez /= el;
+        let uu = Math.atan2(ez, ex); if (uu < 0) uu += TAU;
+        const vv = Math.asin(clamp(ey, -1, 1));
+        const fx = uu / TAU * SW, fy = (0.5 - (vv + Math.PI / 2) / Math.PI) * SH;
+        if (starsOn) {
+          const c = sampleTex(data, SW, SH, fx, fy, true);
+          R = c[0]; G = c[1]; B = c[2];
+        }
+      } else {
+        // 阴影/光子环区域用细光路表，其余用粗表
+        const fine = dx * D0X + dy * D0Y + dz * D0Z > COS_HALF;
+        const res = fine ? sampleLUTFine(dx, dy, dz) : sampleLUT(dx, dy, dz);
+        if (res.type === 2) {
+          R = 0; G = 0; B = 0;
+        } else if (res.type === 0) {
+          const d2 = res.dir;
+          let uu = Math.atan2(d2[2], d2[0]); if (uu < 0) uu += TAU;
+          const vv = Math.asin(clamp(d2[1], -1, 1));
+          const fx = uu / TAU * SW, fy = (0.5 - (vv + Math.PI / 2) / Math.PI) * SH;
+          if (starsOn) {
+            const c = sampleTex(data, SW, SH, fx, fy, true);
+            R = c[0]; G = c[1]; B = c[2];
+          }
+        } else {
+          R = res.r; G = res.g; B = res.b;
+        }
+      }
+      img32[py * W + px] = 0xFF000000 | ((B | 0) << 16) | ((G | 0) << 8) | (R | 0);
+    }
+  }
+  ctx.putImageData(img, 0, 0);
+}
+
+/* ---------------- 画质自适应 ---------------- */
+const QUALS = [[1280, 720], [960, 540], [800, 450], [640, 360]];
+let qualMode = "auto", qualIdx = 1, emaDt = 16, upCount = 0, downCount = 0;
+
+/* ---------------- 输入 ---------------- */
+let dragging = false, lastX = 0, lastY = 0;
+canvas.addEventListener("mousedown", (e) => { dragging = true; lastInputT = performance.now(); lastX = e.clientX; lastY = e.clientY; canvas.classList.add("dragging"); });
+window.addEventListener("mouseup", () => { dragging = false; canvas.classList.remove("dragging"); });
+window.addEventListener("mousemove", (e) => {
+  if (!dragging) return;
+  const dx = e.clientX - lastX, dy = e.clientY - lastY;
+  lastX = e.clientX; lastY = e.clientY;
+  yaw -= dx * 0.004;
+  pitch = clamp(pitch + dy * 0.004, -1.45, 1.45);
+  needsRender = true;
+});
+canvas.addEventListener("wheel", (e) => {
+  e.preventDefault();
+  lastInputT = performance.now();
+  fov = clamp(fov * (1 + e.deltaY * 0.0012), 10, 100);
+  needsRender = true;
+}, { passive: false });
+canvas.addEventListener("dblclick", resetView);
+window.addEventListener("keydown", (e) => {
+  const k = e.key.toLowerCase();
+  if (k === "q") { roll -= 0.08; needsRender = true; }
+  if (k === "e") { roll += 0.08; needsRender = true; }
+  if (k === "r") { resetView(); }
+});
+// 触屏
+let touchMode = null, pinchD = 0;
+canvas.addEventListener("touchstart", (e) => {
+  if (e.touches.length === 1) {
+    touchMode = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+  } else if (e.touches.length === 2) {
+    pinchD = Math.hypot(e.touches[0].clientX - e.touches[1].clientX, e.touches[0].clientY - e.touches[1].clientY);
+    touchMode = null;
+  }
+  e.preventDefault();
+}, { passive: false });
+canvas.addEventListener("touchmove", (e) => {
+  if (touchMode && e.touches.length === 1) {
+    const dx = e.touches[0].clientX - touchMode.x, dy = e.touches[0].clientY - touchMode.y;
+    touchMode.x = e.touches[0].clientX; touchMode.y = e.touches[0].clientY;
+    yaw -= dx * 0.004;
+    pitch = clamp(pitch + dy * 0.004, -1.45, 1.45);
+    needsRender = true;
+  } else if (e.touches.length === 2) {
+    const d = Math.hypot(e.touches[0].clientX - e.touches[1].clientX, e.touches[0].clientY - e.touches[1].clientY);
+    if (pinchD > 0) {
+      fov = clamp(fov * pinchD / d, 10, 100);
+      pinchD = d;
+      needsRender = true;
+    }
+  }
+  e.preventDefault();
+}, { passive: false });
+canvas.addEventListener("touchend", () => { touchMode = null; pinchD = 0; });
+
+function resetView() {
+  yaw = 0; pitch = 0.22; roll = 0; fov = 40;
+  needsRender = true;
+}
+
+/* ---------------- UI ---------------- */
+let needsRender = true;
+const hudStat = document.getElementById("hudStat");
+const loadEl = document.getElementById("load");
+const loadBar = document.getElementById("loadBar");
+const loadP = document.getElementById("loadP");
+function setLoad(frac, text) {
+  loadBar.style.width = (frac * 100).toFixed(1) + "%";
+  loadP.textContent = text;
+}
+
+// 参数面板
+const panel = document.getElementById("panel");
+document.getElementById("panelBtn").addEventListener("click", () => panel.classList.toggle("open"));
+function bindRange(id, outId, fmt, fn) {
+  const el = document.getElementById(id), out = document.getElementById(outId);
+  el.addEventListener("input", () => {
+    out.textContent = fmt(el.value);
+    fn(parseFloat(el.value));
+  });
+}
+bindRange("rin", "rinV", v => v + "M", v => { diskParams.rin = v; diskChanged(); });
+bindRange("rout", "routV", v => v + "M", v => { diskParams.rout = v; diskChanged(); });
+bindRange("alpha", "alphaV", v => v, v => { diskParams.alpha = v; diskChanged(); });
+bindRange("t0", "t0V", v => v + "K", v => { diskParams.t0 = v; diskChanged(); });
+bindRange("expo", "expoV", v => v + "×", v => { diskParams.exposure = v; needsRender = true; });
+document.getElementById("dir").addEventListener("change", (e) => {
+  diskParams.dir = parseInt(e.target.value);
+  diskChanged();
+  // 多普勒因子与光路相关，旋转方向变化需重算光路
+  loadEl.classList.remove("hidden");
+  setLoad(0, "重算引力光路（旋转方向已变）…");
+  lutChunk = 0;
+  precomputeLUT(() => {
+    setLoad(1, "完成");
+    setTimeout(() => loadEl.classList.add("hidden"), 200);
+    needsRender = true;
+  });
+});
+document.getElementById("mode").addEventListener("change", (e) => { diskMode = parseInt(e.target.value); needsRender = true; });
+document.getElementById("orbit").addEventListener("change", (e) => { autoOrbit = e.target.checked; });
+document.getElementById("stars").addEventListener("change", (e) => { starsOn = e.target.checked; needsRender = true; });
+document.getElementById("galaxy").addEventListener("change", (e) => {
+  galaxyOn = e.target.checked;
+  buildSky(galaxyOn, () => {
+    prepareSkyData();
+    needsRender = true;
+  });
+});
+document.getElementById("qsel").addEventListener("change", (e) => {
+  qualMode = e.target.value;
+  if (qualMode !== "auto") { qualIdx = parseInt(qualMode); applyQuality(); needsRender = true; }
+});
+document.getElementById("resetBtn").addEventListener("click", resetView);
+document.getElementById("physToggle").addEventListener("click", () => {
+  const b = document.getElementById("physBody");
+  b.style.display = b.style.display === "none" ? "" : "none";
+});
+
+function diskChanged() {
+  needsRender = true;
+  buildDisk(() => {
+    prepareSkyData();
+    needsRender = true;
+  });
+}
+
+function applyQuality() {
+  const q = QUALS[qualIdx];
+  if (canvas.width !== q[0] || canvas.height !== q[1]) {
+    canvas.width = q[0]; canvas.height = q[1];
+    CW = q[0]; CH = q[1];
+    img = null;
+  }
+}
+
+/* ---------------- 主循环 ---------------- */
+let last = performance.now(), idleT = 0;
+function loop(t) {
+  const dt = Math.min(t - last, 100);
+  last = t;
+  animTime += dt / 1000;
+  emaDt = emaDt * .95 + dt * .05;
+
+  // 开场动画：从远推近 + 轻微旋转（2.5 秒）
+  if (introT < 2.5) {
+    introT += dt / 1000;
+    const k = Math.min(1, introT / 2.5);
+    const e = k * k * (3 - 2 * k);   // smoothstep
+    fov = 90 - 50 * e;
+    yaw = -0.7 * (1 - e);
+    needsRender = true;
+  }
+  // 空闲自动环绕（展示动画，用户交互后暂停计时）
+  if (autoOrbit && !dragging && introT >= 2.5 && performance.now() - lastInputT > 2500) {
+    yaw += dt / 1000 * 0.07;
+    needsRender = true;
+  }
+
+  if (qualMode === "auto") {
+    if (emaDt > 45 && qualIdx < 3) { if (++downCount > 8) { qualIdx++; downCount = 0; applyQuality(); needsRender = true; } } else downCount = 0;
+    if (emaDt < 30 && qualIdx > 0) { if (++upCount > 20) { qualIdx--; upCount = 0; applyQuality(); needsRender = true; } } else upCount = 0;
+  }
+  if (needsRender || dragging) {
+    renderFrame();
+    needsRender = false;
+    idleT = 0;
+  } else {
+    idleT += dt;
+    if (idleT > 600 && qualIdx > 0 && qualMode === "auto") {
+      // 静止时用高画质重绘一次
+      const save = qualIdx;
+      qualIdx = 0; applyQuality(); renderFrame();
+      qualIdx = save; applyQuality();
+      idleT = 0;
+    }
+  }
+  // HUD
+  hudStat.innerHTML =
+    "方位 " + ((yaw * 180 / Math.PI % 360 + 360) % 360).toFixed(0) + "° · 俯仰 " + (pitch * 180 / Math.PI).toFixed(0) + "°<br>" +
+    "视场 " + fov.toFixed(0) + "° · 渲染 <b>" + CW + "×" + CH + "</b> · " +
+    "<b>" + (1000 / Math.max(dt, 1)).toFixed(0) + "</b> FPS";
+  requestAnimationFrame(loop);
+}
+
+/* ---------------- 启动 ---------------- */
+setLoad(0.02, "生成星空背景…");
+setTimeout(() => {
+  buildSky(true, () => {
+    setLoad(0.12, "生成吸积盘纹理…");
+    setTimeout(() => {
+      buildDisk(() => {
+        prepareSkyData();
+        setLoad(0.2, "计算引力光路（测地线积分）…");
+        setTimeout(() => {
+          precomputeLUT(() => {
+            setLoad(1, "完成");
+            setTimeout(() => {
+              loadEl.classList.add("hidden");
+              applyQuality();
+              requestAnimationFrame(loop);
+            }, 150);
+          });
+          // 进度轮询
+          const poll = setInterval(() => {
+            if (!lutDone) {
+              if (lutProgress < 1) {
+                setLoad(0.2 + lutProgress * 0.25, "计算粗光路… " + (lutProgress * 100).toFixed(0) + "%");
+              } else {
+                setLoad(0.45 + fineProgress * 0.55, "计算阴影/光子环细光路… " + (fineProgress * 100).toFixed(0) + "%");
+              }
+            } else clearInterval(poll);
+          }, 60);
+        }, 30);
+      });
+    }, 30);
+  });
+}, 30);
+</script>
+</body>
+</html>
