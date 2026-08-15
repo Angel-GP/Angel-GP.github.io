@@ -1,0 +1,277 @@
+/* =========================================================
+   Joker Wiki — 运行在 GitHub Pages 上的纯前端 Wiki
+   ========================================================= */
+
+:root{
+  --bg:#f6f6f4;
+  --bg2:#ffffff;
+  --border:#e4e2dc;
+  --text:#1f2328;
+  --text2:#59636e;
+  --accent:#6d28d9;
+  --accent-soft:#ede9fe;
+  --accent-text:#5b21b6;
+  --code-bg:#f1efea;
+  --pre-bg:#f6f8fa;
+  --danger:#d1242f;
+  --warn-bg:#fff8e1;
+  --warn-border:#ecd68a;
+  --sidebar-bg:#fbfbf8;
+  --shadow:0 2px 8px rgba(0,0,0,.10);
+}
+[data-theme="dark"]{
+  --bg:#141419;
+  --bg2:#1d1d25;
+  --border:#2d2d38;
+  --text:#e6e6ea;
+  --text2:#9ba0a8;
+  --accent:#a78bfa;
+  --accent-soft:#2a2340;
+  --accent-text:#c4b5fd;
+  --code-bg:#26262f;
+  --pre-bg:#17171f;
+  --danger:#f47067;
+  --warn-bg:#2b2513;
+  --warn-border:#6d5c26;
+  --sidebar-bg:#191920;
+  --shadow:0 2px 10px rgba(0,0,0,.45);
+}
+
+*{box-sizing:border-box}
+html,body{margin:0;padding:0;height:100%}
+body{
+  font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;
+  background:var(--bg);color:var(--text);font-size:15px;line-height:1.7;
+}
+.layout{display:grid;grid-template-columns:280px minmax(0,1fr) 240px;height:100vh;overflow:hidden}
+
+/* ---------- 按钮 ---------- */
+.btn{
+  display:inline-flex;align-items:center;justify-content:center;gap:6px;
+  padding:7px 14px;border:1px solid var(--border);border-radius:8px;
+  background:var(--bg2);color:var(--text);font-size:14px;cursor:pointer;
+  text-decoration:none;font-family:inherit;line-height:1.4;
+}
+.btn:hover{border-color:var(--accent)}
+.btn:disabled{opacity:.55;cursor:not-allowed}
+.btn-primary{background:var(--accent);border-color:var(--accent);color:#fff}
+.btn-primary:hover{filter:brightness(1.1)}
+.btn-sm{padding:4px 10px;font-size:13px}
+.btn-block{width:100%}
+.btn-danger-ghost{color:var(--danger);border-color:transparent}
+.btn-danger-ghost:hover{border-color:var(--danger)}
+.icon-btn{
+  width:32px;height:32px;border:1px solid var(--border);background:transparent;
+  border-radius:8px;cursor:pointer;font-size:15px;color:var(--text);
+  display:inline-flex;align-items:center;justify-content:center;flex:none;
+}
+.icon-btn:hover{background:var(--bg)}
+.icon-only{padding:4px 9px}
+
+/* ---------- 侧边栏 ---------- */
+#sidebar{
+  background:var(--sidebar-bg);border-right:1px solid var(--border);
+  display:flex;flex-direction:column;min-width:0;min-height:0;
+}
+.brand{display:flex;align-items:center;gap:10px;padding:16px 16px 12px}
+.brand-logo{font-size:26px;line-height:1}
+.brand-title{font-weight:700;font-size:16px}
+.brand-sub{font-size:11.5px;color:var(--text2)}
+.side-search{padding:0 12px 10px;display:flex;flex-direction:column;gap:6px}
+.side-search input{
+  width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:8px;
+  background:var(--bg);color:var(--text);font-size:13.5px;font-family:inherit;
+}
+.side-search input:focus{outline:none;border-color:var(--accent)}
+.fulltext-toggle{font-size:12px;color:var(--text2);display:flex;align-items:center;gap:5px;cursor:pointer;user-select:none}
+.side-actions{padding:0 12px 10px}
+.page-tree{flex:1;overflow-y:auto;padding:0 8px 10px;min-height:0}
+.tree-count{font-size:11.5px;color:var(--text2);padding:2px 10px 8px}
+.tree-item{
+  display:block;padding:6px 10px;border-radius:8px;color:var(--text);
+  text-decoration:none;font-size:13.5px;word-break:break-all;
+}
+.tree-item:hover{background:var(--bg)}
+.tree-item.active{background:var(--accent-soft);color:var(--accent-text);font-weight:600}
+.tree-snippet{display:block;font-size:12px;color:var(--text2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tree-empty{padding:24px 12px;color:var(--text2);font-size:13px;text-align:center}
+.tree-group summary{
+  cursor:pointer;font-size:12.5px;color:var(--text2);font-weight:600;
+  padding:8px 10px;user-select:none;list-style:none;
+}
+.tree-group summary::-webkit-details-marker{display:none}
+.tree-group summary::before{content:"▸ ";font-size:10px}
+.tree-group[open] summary::before{content:"▾ "}
+.tree-group{padding:0 2px 4px}
+.tree-group .tree-item{padding-left:22px}
+.tree-n{font-size:11px;opacity:.65;font-weight:400}
+.side-footer{
+  display:flex;align-items:center;gap:6px;padding:10px 12px;
+  border-top:1px solid var(--border);flex:none;
+}
+.dot{width:9px;height:9px;border-radius:50%;background:#b0b3b8;margin-left:auto;flex:none}
+.dot.ok{background:#2da44e}
+.dot.off{background:#cf222e}
+
+/* ---------- 主区域 ---------- */
+#main{overflow-y:auto;display:flex;flex-direction:column;min-width:0;min-height:0}
+.page-header{
+  display:flex;align-items:center;gap:10px;padding:11px 28px;
+  border-bottom:1px solid var(--border);background:var(--bg2);
+  position:sticky;top:0;z-index:10;flex:none;
+}
+.breadcrumbs{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:14px}
+.crumb{color:var(--text2);text-decoration:none}
+.crumb:hover{color:var(--accent-text)}
+.crumb-sep{margin:0 7px;color:var(--text2)}
+.crumb-cur{font-weight:600}
+.header-actions{display:flex;gap:8px;flex:none}
+.editing-tag{font-size:12.5px;color:var(--text2)}
+.content{max-width:860px;width:100%;margin:0 auto;padding:28px 36px 90px;min-height:100%}
+.hint{font-size:12px;color:var(--text2)}
+
+/* ---------- 右侧目录 ---------- */
+.toc-col{border-left:1px solid var(--border);background:var(--bg2);overflow-y:auto;padding:20px 14px}
+.toc{position:sticky;top:16px}
+.toc-title{font-size:12px;font-weight:700;color:var(--text2);letter-spacing:.05em;margin-bottom:8px}
+.toc-item{
+  display:block;font-size:13px;color:var(--text2);text-decoration:none;
+  padding:3px 0 3px 8px;border-left:2px solid transparent;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+}
+.toc-item:hover{color:var(--accent-text);border-left-color:var(--accent)}
+.toc-h3{padding-left:22px}
+
+/* ---------- Markdown 正文 ---------- */
+.markdown-body{font-size:15.5px}
+.markdown-body > :first-child{margin-top:0}
+.markdown-body h1{font-size:1.9em;padding-bottom:.3em;border-bottom:1px solid var(--border);margin:0 0 .7em}
+.markdown-body h2{font-size:1.42em;margin:1.5em 0 .6em;padding-bottom:.25em;border-bottom:1px solid var(--border)}
+.markdown-body h3{font-size:1.18em;margin:1.3em 0 .5em}
+.markdown-body h4{font-size:1.02em;margin:1.1em 0 .4em}
+.markdown-body p{margin:.7em 0}
+.markdown-body a{color:var(--accent-text)}
+.markdown-body img{max-width:100%;border-radius:8px}
+.markdown-body code{
+  background:var(--code-bg);padding:.15em .4em;border-radius:5px;
+  font-size:.87em;font-family:ui-monospace,Consolas,"Cascadia Code","Courier New",monospace;
+}
+.markdown-body pre{
+  background:var(--pre-bg);border:1px solid var(--border);border-radius:10px;
+  padding:14px 16px;overflow-x:auto;line-height:1.55;margin:1em 0;
+}
+.markdown-body pre code{background:none;padding:0;font-size:13px}
+.markdown-body blockquote{
+  margin:1em 0;padding:.3em 1em;border-left:4px solid var(--accent);
+  background:var(--accent-soft);border-radius:0 8px 8px 0;color:var(--text2);
+}
+.markdown-body table{border-collapse:collapse;margin:1em 0;display:block;overflow-x:auto;max-width:100%}
+.markdown-body th,.markdown-body td{border:1px solid var(--border);padding:7px 13px}
+.markdown-body th{background:var(--code-bg);font-weight:600}
+.markdown-body tr:nth-child(2n) td{background:var(--code-bg)}
+.markdown-body hr{border:none;border-top:1px solid var(--border);margin:2em 0}
+.markdown-body ul,.markdown-body ol{padding-left:1.7em;margin:.6em 0}
+.markdown-body li{margin:.25em 0}
+.markdown-body li input[type="checkbox"]{margin-right:.4em}
+.markdown-body dl dt{font-weight:600}
+.wikilink{color:var(--accent-text);text-decoration:none;border-bottom:1px dotted var(--accent);font-weight:500}
+.wikilink:hover{border-bottom-style:solid}
+.wikilink-missing{color:var(--danger);border-bottom:1px dashed var(--danger);cursor:pointer}
+
+/* ---------- 横幅 / 空状态 / 加载 ---------- */
+.banner{border-radius:10px;padding:10px 14px;margin-bottom:18px;font-size:14px}
+.banner.warn{background:var(--warn-bg);border:1px solid var(--warn-border)}
+.banner.hist{background:var(--accent-soft);border:1px solid var(--accent)}
+.banner code{background:var(--code-bg);padding:1px 6px;border-radius:4px}
+.empty-page{text-align:center;padding:70px 20px}
+.empty-icon{font-size:48px;margin-bottom:8px}
+.empty-page h2{margin:.3em 0}
+.empty-actions{display:flex;gap:10px;justify-content:center;margin-top:18px;flex-wrap:wrap}
+.loading{display:flex;flex-direction:column;align-items:center;gap:14px;padding:60px 0;color:var(--text2)}
+.spinner{
+  width:28px;height:28px;border:3px solid var(--border);
+  border-top-color:var(--accent);border-radius:50%;animation:spin .8s linear infinite;
+}
+@keyframes spin{to{transform:rotate(360deg)}}
+.error{color:var(--danger);font-size:14px}
+
+/* ---------- 编辑器 ---------- */
+.editor-meta{font-size:12.5px;color:var(--text2);margin-bottom:8px}
+.editor-meta kbd{border:1px solid var(--border);border-bottom-width:2px;border-radius:4px;padding:0 5px;font-size:11px;background:var(--bg2)}
+#editor-area{
+  width:100%;min-height:58vh;padding:16px;border:1px solid var(--border);border-radius:10px;
+  background:var(--bg2);color:var(--text);resize:vertical;line-height:1.65;font-size:13.5px;
+  font-family:ui-monospace,Consolas,"Cascadia Code","Courier New",monospace;
+}
+#editor-area:focus{outline:none;border-color:var(--accent)}
+.preview{border:1px solid var(--border);border-radius:10px;padding:16px 22px;background:var(--bg2);min-height:58vh}
+.editor-actions{display:flex;gap:8px;margin-top:12px;flex-wrap:wrap}
+.editor-actions .btn-danger-ghost{margin-left:auto}
+
+/* ---------- 弹窗 ---------- */
+.modal-overlay{
+  position:fixed;inset:0;background:rgba(10,10,15,.55);
+  display:flex;align-items:center;justify-content:center;z-index:50;padding:20px;
+}
+.modal{
+  background:var(--bg2);border:1px solid var(--border);border-radius:14px;
+  width:min(560px,100%);max-height:82vh;display:flex;flex-direction:column;
+  box-shadow:0 12px 44px rgba(0,0,0,.35);
+}
+.modal-head{display:flex;justify-content:space-between;align-items:center;padding:14px 18px;border-bottom:1px solid var(--border);font-weight:600}
+.modal-close{border:none;background:none;cursor:pointer;font-size:15px;color:var(--text2);padding:2px 6px}
+.modal-close:hover{color:var(--text)}
+.modal-body{padding:16px 18px;overflow-y:auto}
+.modal-foot{display:flex;gap:8px;justify-content:flex-end;padding:12px 18px;border-top:1px solid var(--border)}
+.field{display:flex;flex-direction:column;gap:6px;margin-bottom:14px;font-size:13px}
+.field > span{font-weight:600;color:var(--text)}
+.field input,.field textarea{
+  padding:8px 10px;border:1px solid var(--border);border-radius:8px;
+  background:var(--bg);color:var(--text);font-size:14px;font-family:inherit;
+}
+.field input:focus,.field textarea:focus{outline:none;border-color:var(--accent)}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:0 12px}
+
+/* ---------- 历史 / 反向链接 ---------- */
+.hist-item{padding:10px 0;border-bottom:1px solid var(--border)}
+.hist-item:last-child{border-bottom:none}
+.hist-top{display:flex;justify-content:space-between;gap:8px;align-items:baseline}
+.hist-msg{font-weight:600;font-size:14px}
+.hist-sha{font-family:ui-monospace,monospace;font-size:12px;color:var(--text2)}
+.hist-sub{font-size:12.5px;color:var(--text2);margin:2px 0 7px}
+.hist-btns{display:flex;gap:8px}
+.backlink-item{
+  display:flex;justify-content:space-between;gap:10px;padding:9px 13px;
+  border:1px solid var(--border);border-radius:8px;text-decoration:none;
+  color:var(--text);margin-bottom:8px;font-size:14px;
+}
+.backlink-item:hover{border-color:var(--accent);background:var(--accent-soft)}
+
+/* ---------- Toast ---------- */
+.toast-root{position:fixed;right:18px;bottom:18px;z-index:100;display:flex;flex-direction:column;gap:8px}
+.toast{
+  background:var(--text);color:var(--bg2);padding:10px 16px;border-radius:10px;
+  font-size:13.5px;box-shadow:var(--shadow);opacity:0;transform:translateY(8px);
+  transition:all .25s;max-width:360px;word-break:break-word;
+}
+.toast.show{opacity:1;transform:none}
+.toast.error{background:var(--danger);color:#fff}
+
+.menu-btn{display:none}
+
+/* ---------- 响应式 ---------- */
+@media (max-width:1150px){
+  .toc-col{display:none}
+  .layout{grid-template-columns:280px minmax(0,1fr)}
+}
+@media (max-width:760px){
+  .layout{grid-template-columns:1fr}
+  #sidebar{
+    position:fixed;inset:0 auto 0 0;width:min(300px,85vw);z-index:40;
+    transform:translateX(-105%);transition:transform .25s;
+  }
+  body.nav-open #sidebar{transform:none;box-shadow:0 0 60px rgba(0,0,0,.45)}
+  .menu-btn{display:inline-flex}
+  .content{padding:20px 16px 70px}
+  .page-header{padding:10px 12px}
+}
