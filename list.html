@@ -29,6 +29,10 @@
   }
   button:hover { background: #f0f3f6; }
 
+  .toolbar { display: flex; align-items: center; gap: 6px; margin-bottom: 14px; flex-wrap: wrap; }
+  .toolbar-label { font-size: .85rem; color: #7a828c; margin-right: 2px; }
+  .toolbar button.active { background: #0969da; border-color: #0969da; color: #fff; }
+
   .summary { color: #7a828c; font-size: .85rem; margin-bottom: 16px; }
 
   .msg {
@@ -76,6 +80,13 @@
     <button id="refreshBtn">🔄 刷新</button>
   </header>
 
+  <div class="toolbar" id="toolbar">
+    <span class="toolbar-label">排序：</span>
+    <button data-sort="default" title="保持原始顺序">默认</button>
+    <button data-sort="az" title="按名称从 A 到 Z">名称 A→Z</button>
+    <button data-sort="za" title="按名称从 Z 到 A">名称 Z→A</button>
+  </div>
+
   <div class="summary" id="summary"></div>
   <div class="msg" id="msg"></div>
   <main id="list"></main>
@@ -109,6 +120,32 @@
   const listEl = document.getElementById("list");
   const msgEl = document.getElementById("msg");
   const summaryEl = document.getElementById("summary");
+
+  /* ---------- 排序 ---------- */
+  let currentSort = localStorage.getItem("list.sort") || "default";
+  let currentEntries = null;
+
+  function updateSortButtons(){
+    document.querySelectorAll("#toolbar [data-sort]").forEach((b) =>
+      b.classList.toggle("active", b.dataset.sort === currentSort)
+    );
+  }
+  function sortEntries(entries){
+    if (currentSort === "az")
+      return [...entries].sort((a, b) => a.name.localeCompare(b.name, "zh"));
+    if (currentSort === "za")
+      return [...entries].sort((a, b) => b.name.localeCompare(a.name, "zh"));
+    return entries; // 默认：保持原始顺序
+  }
+  document.querySelectorAll("#toolbar [data-sort]").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      currentSort = btn.dataset.sort;
+      localStorage.setItem("list.sort", currentSort);
+      updateSortButtons();
+      if (currentEntries) render(currentEntries);
+    });
+  });
+  updateSortButtons();
 
   const esc = (s) =>
     String(s).replace(/[&<>"']/g, (c) => (
@@ -216,6 +253,10 @@
   function render(entries) {
     // 只保留有 index 的文件夹
     entries = entries.filter((e) => e.idx);
+    currentEntries = entries;
+
+    // 应用排序
+    entries = sortEntries(entries);
 
     listEl.innerHTML = "";
     if (!entries.length) {
