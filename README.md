@@ -1,6 +1,13 @@
 # 🃏 Joker Wiki
 
-一个**纯前端**的 Markdown Wiki，直接运行在 **GitHub Pages** 上。零构建、零服务器、零数据库——所有页面都是仓库里 `wiki/` 目录下的 `.md` 文件，页面通过 GitHub API 直接读写。
+一个**纯前端**的 Markdown Wiki，运行在 **GitHub Pages** 上。零构建、零服务器、零数据库——所有页面都是仓库 `joker-wiki/wiki/` 目录下的 `.md` 文件，页面通过 GitHub API 直接读写。
+
+## 本仓库部署情况
+
+- 仓库：`Angel-GP/Angel-GP.github.io`（用户站点，主分支根目录自动发布）
+- Wiki 访问地址：**https://angel-gp.github.io/joker-wiki/**
+- 应用代码：`joker-wiki/` 子目录；内容文件：`joker-wiki/wiki/*.md`
+- 与仓库中已有的其他网站页面互不干扰
 
 ## 功能
 
@@ -16,60 +23,43 @@
 ## 目录结构
 
 ```
-├── index.html            # 页面骨架
-├── css/style.css         # 样式（浅色/深色主题）
-├── js/
-│   ├── config.js         # ⭐ 部署前修改 owner / repo
-│   ├── api.js            # GitHub API 封装（读取走 raw CDN）
-│   ├── markdown.js       # markdown-it + 双链插件
-│   └── app.js            # 路由 / 编辑 / 搜索 / 历史 / 反向链接
-├── lib/markdown-it.min.js
-├── wiki/                 # ⭐ 内容目录（Markdown 文件）
-├── test/smoke.js         # 冒烟测试（node test/smoke.js）
-└── README.md
+├── joker-wiki/                # Wiki 应用（整个站点的子目录）
+│   ├── index.html             # 页面骨架
+│   ├── css/style.css          # 样式（浅色/深色主题）
+│   ├── js/
+│   │   ├── config.js          # ⭐ owner / repo / 内容目录配置
+│   │   ├── api.js             # GitHub API 封装（读取走 raw CDN）
+│   │   ├── markdown.js        # markdown-it + 双链插件
+│   │   └── app.js             # 路由 / 编辑 / 搜索 / 历史 / 反向链接
+│   ├── lib/markdown-it.min.js
+│   ├── wiki/                  # ⭐ 内容目录（Markdown 文件）
+│   └── test/smoke.js          # 冒烟测试（node test/smoke.js）
+├── README.md
+└── ……（仓库原有的其他网站文件）
 ```
-
-## 部署（5 分钟）
-
-1. **创建公开仓库**并推送本项目：
-
-   ```bash
-   git init -b main
-   git add .
-   git commit -m "Init Joker Wiki"
-   git remote add origin https://github.com/<你的用户名>/joker-wiki.git
-   git push -u origin main
-   ```
-
-2. **修改配置**：编辑 `js/config.js`，把 `owner` 改成你的 GitHub 用户名、`repo` 改成仓库名，提交推送。
-
-3. **开启 Pages**：仓库 Settings → Pages → Source 选 `main` / `/(root)` → Save。等待 1~2 分钟。
-
-4. 打开 `https://<你的用户名>.github.io/joker-wiki/` 🎉
 
 ## 配置编辑 Token（可选，推荐）
 
 不配置 Token 只能浏览；配置后可在网页上直接编辑、新建、删除页面。
 
 1. GitHub → Settings → Developer settings → **Fine-grained personal access tokens** → Generate new token
-2. Repository access：**Only select repositories** → 选这个仓库
+2. Repository access：**Only select repositories** → 选 `Angel-GP/Angel-GP.github.io`
 3. Permissions → **Contents** → **Read and write**
 4. 设置过期时间 → 生成 → 复制 `github_pat_...`
-5. 打开站点 → 左下角 ⚙ 设置 → 粘贴 Token → 保存
+5. 打开 https://angel-gp.github.io/joker-wiki/ → 左下角 ⚙ 设置 → 粘贴 Token → 保存
 
 > ⚠️ Token 只保存在你当前浏览器的 localStorage，不会上传到服务器。请勿在公共电脑配置，并设置过期时间。
 
-## 本地预览
-
-任意静态服务器即可（fetch 到 GitHub 的 CORS 均放行）：
+## 本地更新与推送
 
 ```bash
-python -m http.server 8000
-# 或
-npx serve
+# 本机 git 位于 E:\Win\Desktop\agent\work\tools\PortableGit
+git -C <本目录> add -A
+git -C <本目录> commit -m "更新 Wiki"
+git -C <本目录> push
 ```
 
-然后打开 `http://localhost:8000/`（未改配置时会显示"尚未配置仓库"提示，属正常现象）。
+推送后约 1 分钟，https://angel-gp.github.io/joker-wiki/ 自动更新。
 
 ## 注意事项
 
