@@ -56,6 +56,8 @@ function relTime(iso){
   return fmtDate(iso);
 }
 const isLoggedIn = () => !!state.user;
+/* 页面所有权：无主页面（未认领）可编辑，有主页面仅创建者可编辑 */
+const canEdit = (p) => !!(state.user && p && (p.ownerId == null || p.ownerId === state.user.id));
 const isPlaceholder = () => {
   const s = state.settings.supabase || {};
   return !s.url || !s.anonKey || /YOUR-PROJECT|YOUR-ANON/.test(s.url + s.anonKey);
@@ -91,6 +93,8 @@ function renderUserArea(){
     userArea.innerHTML = `<button class="user-chip guest" id="btn-user" title="登录后可编辑">👤 登录</button>`;
     $("btn-user").onclick = () => openLogin();
   }
+  // 登录状态影响编辑按钮显示，刷新页头
+  if (state.viewMode === "view" && state.current) renderHeader();
 }
 function confirmLogout(){
   if (!confirm("退出登录？")) return;
@@ -166,14 +170,14 @@ function requireLogin(){
 }
 
 /* ---------- 页面索引 ---------- */
-function treeCacheKey(){ return "jw.tree.supabase.v1"; }
+function treeCacheKey(){ return "jw.tree.supabase.v2"; }
 function readTreeCache(){
   try { return JSON.parse(localStorage.getItem(treeCacheKey()) || "null"); } catch (e) { return null; }
 }
 function saveTreeCache(){
   try {
     localStorage.setItem(treeCacheKey(), JSON.stringify({
-      pages: state.index.pages.map(p => ({ path: p.path })), at: Date.now()
+      pages: state.index.pages.map(p => ({ path: p.path, ownerId: p.ownerId, ownerName: p.ownerName })), at: Date.now()
     }));
   } catch (e) {}
 }
@@ -190,10 +194,14 @@ function setIndex(pages, loaded){
   if (loaded) state.indexLoaded = true;
   renderTree();
 }
-function upsertIndex(path){
-  if (!state.index.byPath.has(path)){
-    state.index.pages.push({ path });
-    state.index.byPath.set(path, { path });
+function upsertIndex(path, owner){
+  const existing = state.index.byPath.get(path);
+  if (existing){
+    if (owner) Object.assign(existing, owner);
+  } else {
+    const p = Object.assign({ path }, owner || {});
+    state.index.pages.push(p);
+    state.index.byPath.set(path, p);
     const base = path.split("/").pop().toLowerCase();
     if (!state.index.byBase.has(base)) state.index.byBase.set(base, []);
     state.index.byBase.get(base).push(path);
@@ -350,7 +358,7 @@ async function showPage(path, ref){
   window.removeEventListener("beforeunload", beforeUnload);
   state.viewMode = "view";
   state.historyRef = ref || null;
-  state.current = { path };
+  state.current = Object.assign({ path }, state.index.byPath.get(path) || {});
   $("main").scrollTop = 0;
   tocEl.innerHTML = "";
   renderHeader();
@@ -390,14 +398,27 @@ function renderHeader(){
         `<button class="btn btn-sm" id="btn-back-latest">← 返回最新版本</button>
          <button class="btn btn-sm btn-primary" id="btn-restore">恢复此版本到编辑器</button>`;
       $("btn-back-latest").onclick = () => showPage(p.path);
-      $("btn-restore").onclick = () => { if (requireLogin()) restoreFromHistory(); };
-    } else {
+      $("btn-restore").onclick = () => {
+        if (!requireLogin()) return;
+        if (!canEdit(p)) return toast("🔒 只能编辑自己创建的页面", "error");
+        restoreFromHistory();
+      };
+    } else if (canEdit(p)){
       headerActions.innerHTML =
         `<button class="btn btn-sm btn-primary" id="btn-edit">✏️ 编辑</button>
          <button class="btn btn-sm" id="btn-history">🕘 历史</button>
          <button class="btn btn-sm" id="btn-backlinks">🔗 反向链接</button>
          <button class="btn btn-sm icon-only" id="btn-copy" title="复制本页链接">⧉</button>`;
       $("btn-edit").onclick = () => { if (requireLogin()) startEdit(); };
+      $("btn-history").onclick = () => openHistory();
+      $("btn-backlinks").onclick = () => openBacklinks();
+      $("btn-copy").onclick = copyLink;
+    } else {
+      headerActions.innerHTML =
+        `<span class="editing-tag" title="仅页面创建者可编辑">🔒 只读</span>
+         <button class="btn btn-sm" id="btn-history">🕘 历史</button>
+         <button class="btn btn-sm" id="btn-backlinks">🔗 反向链接</button>
+         <button class="btn btn-sm icon-only" id="btn-copy" title="复制本页链接">⧉</button>`;
       $("btn-history").onclick = () => openHistory();
       $("btn-backlinks").onclick = () => openBacklinks();
       $("btn-copy").onclick = copyLink;
@@ -413,7 +434,9 @@ function renderView(){
     `<div class="banner warn"><strong>Supabase 尚未配置：</strong>请在 <code>js/config.js</code> 填入 <code>supabase.url</code> 与 <code>supabase.anonKey</code>（详细步骤见 README），然后重新推送。</div>`;
   if (state.historyRef) top +=
     `<div class="banner hist">📜 正在查看历史版本 <code>#${esc(String(state.historyRef).slice(0, 7))}</code>（只读），点右上角可恢复。</div>`;
-  contentEl.innerHTML = `<article class="markdown-body">${top}${html}</article>`;
+  const ownerNote = (state.current && state.current.ownerName)
+    ? `<div class="page-owner">✍️ 创建者：${esc(state.current.ownerName)}</div>` : "";
+  contentEl.innerHTML = `<article class="markdown-body">${top}${html}${ownerNote}</article>`;
   buildTOC();
 }
 function buildTOC(){
@@ -455,6 +478,7 @@ function beforeUnload(e){
 }
 function startEdit(initialText){
   if (!state.current) return;
+  if (!canEdit(state.current)){ toast("🔒 只能编辑自己创建的页面", "error"); return; }
   state.viewMode = "edit";
   state.editText = (initialText !== undefined) ? initialText : (state.current.content || "");
   renderHeader();
@@ -502,12 +526,13 @@ async function saveEdit(){
   const path = state.current.path;
   const content = state.editText;
   if (!isLoggedIn()){ toast("会话已失效，请重新登录", "error"); openLogin(); return; }
+  if (!canEdit(state.current)){ toast("🔒 只能编辑自己创建的页面", "error"); cancelEdit(); return; }
   const btn = $("btn-save");
   btn.disabled = true; btn.textContent = "保存中…";
   try {
     await API.savePage(path, content, "更新 " + path);
     state.current.content = content;
-    upsertIndex(path);
+    upsertIndex(path, { ownerId: state.user.id, ownerName: state.user.email });
     toast("已保存 ✓");
     window.removeEventListener("beforeunload", beforeUnload);
     state.viewMode = "view";
@@ -555,7 +580,12 @@ async function openHistory(){
         </div>
       </div>`).join("") : `<div class="tree-empty">暂无保存记录</div>`;
     body.querySelectorAll("[data-view]").forEach(b => b.onclick = () => { closeModal(); showPage(path, b.dataset.view); });
-    body.querySelectorAll("[data-restore]").forEach(b => b.onclick = () => { closeModal(); if (requireLogin()) restoreFromHistory(b.dataset.restore); });
+    body.querySelectorAll("[data-restore]").forEach(b => b.onclick = () => {
+      closeModal();
+      if (!requireLogin()) return;
+      if (!canEdit(state.current)) return toast("🔒 只能编辑自己创建的页面", "error");
+      restoreFromHistory(b.dataset.restore);
+    });
   } catch (e) {
     document.querySelector(".modal-body").innerHTML = `<div class="error">${esc(e.message)}</div>`;
   }
@@ -649,7 +679,7 @@ function openNewPageModal(prefill){
     try {
       if (!content) content = `# ${name.split("/").pop()}\n\n`;
       await API.savePage(name, content, "创建 " + name);
-      upsertIndex(name);
+      upsertIndex(name, { ownerId: state.user.id, ownerName: state.user.email });
       closeModal();
       toast("已创建 ✓");
       showPage(name);

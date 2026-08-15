@@ -185,6 +185,7 @@ body{
 .markdown-body li{margin:.25em 0}
 .markdown-body li input[type="checkbox"]{margin-right:.4em}
 .markdown-body dl dt{font-weight:600}
+.page-owner{margin-top:2.5em;padding-top:1em;border-top:1px solid var(--border);font-size:12.5px;color:var(--text2)}
 .wikilink{color:var(--accent-text);text-decoration:none;border-bottom:1px dotted var(--accent);font-weight:500}
 .wikilink:hover{border-bottom-style:solid}
 .wikilink-missing{color:var(--danger);border-bottom:1px dashed var(--danger);cursor:pointer}

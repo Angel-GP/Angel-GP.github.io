@@ -62,9 +62,18 @@ const API = (() => {
 
   /* ---------- 页面索引 ---------- */
   async function getIndex(){
-    const { data, error } = await ready().from("pages").select("path");
-    if (error) throw new Error("读取页面列表失败：" + error.message);
-    return (data || []).map(p => ({ path: p.path, sha: null }));
+    const { data, error } = await ready().from("pages").select("path, owner_id, owner_name");
+    if (error){
+      // 兼容：数据库尚未执行所有权迁移时，退回只查路径
+      const { data: d2, error: e2 } = await ready().from("pages").select("path");
+      if (e2) throw new Error("读取页面列表失败：" + e2.message);
+      return (d2 || []).map(p => ({ path: p.path, sha: null, ownerId: null, ownerName: null }));
+    }
+    return (data || []).map(p => ({
+      path: p.path, sha: null,
+      ownerId: p.owner_id || null,
+      ownerName: p.owner_name || null
+    }));
   }
 
   /* ---------- 读取页面 ---------- */
@@ -94,13 +103,13 @@ const API = (() => {
   async function getSha(){ return null; } // Supabase 无需 sha（保留接口兼容）
   async function savePage(path, content, message){
     const { error } = await ready().rpc("save_page", { p_path: path, p_content: content, p_message: message || "" });
-    if (error) throw new Error("保存失败：" + error.message);
+    if (error) throw new Error("保存失败：" + (error.message || "").replace(/^permission denied:\s*/i, ""));
     setCached(path, content);
     return null;
   }
   async function deletePage(path){
     const { error } = await ready().rpc("delete_page", { p_path: path });
-    if (error) throw new Error("删除失败：" + error.message);
+    if (error) throw new Error("删除失败：" + (error.message || "").replace(/^permission denied:\s*/i, ""));
     memCache.delete(path + "@latest");
   }
 

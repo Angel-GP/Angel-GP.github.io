@@ -3,12 +3,14 @@
 -- 用法：Supabase 控制台 → SQL Editor → 粘贴本文件全部内容 → Run
 -- =========================================================
 
--- 1) 页面表（当前内容）
+-- 1) 页面表（当前内容；owner_id = 创建者，仅创建者可编辑）
 create table if not exists public.pages (
   path text primary key,
   content text not null default '',
   updated_at timestamptz not null default now(),
-  updated_by uuid references auth.users(id) on delete set null
+  updated_by uuid references auth.users(id) on delete set null,
+  owner_id uuid references auth.users(id) on delete set null,
+  owner_name text
 );
 
 -- 2) 历史版本表（每次保存一条）
@@ -35,7 +37,7 @@ create policy "revisions_read" on public.revisions for select using (true);
 revoke insert, update, delete on public.pages from anon, authenticated;
 revoke insert, update, delete on public.revisions from anon, authenticated;
 
--- 4) 保存函数（登录用户专用，原子地更新页面 + 写历史）
+-- 4) 保存函数（登录用户专用，仅创建者可写；原子地更新页面 + 写历史）
 create or replace function public.save_page(p_path text, p_content text, p_message text default '')
 returns void
 language plpgsql
@@ -44,6 +46,7 @@ set search_path = public
 as $$
 declare
   v_email text;
+  v_owner uuid;
 begin
   if auth.uid() is null then
     raise exception 'not authenticated';
@@ -51,8 +54,14 @@ begin
 
   select email into v_email from auth.users where id = auth.uid();
 
-  insert into pages(path, content, updated_by)
-  values (p_path, p_content, auth.uid())
+  -- 所有权检查：页面已有创建者且不是当前用户 → 拒绝
+  select owner_id into v_owner from pages where path = p_path;
+  if v_owner is not null and v_owner <> auth.uid() then
+    raise exception 'permission denied: 只能编辑自己创建的页面';
+  end if;
+
+  insert into pages(path, content, updated_by, owner_id, owner_name)
+  values (p_path, p_content, auth.uid(), auth.uid(), coalesce(v_email, 'unknown'))
   on conflict (path) do update
     set content = excluded.content,
         updated_at = now(),
@@ -65,17 +74,28 @@ $$;
 
 grant execute on function public.save_page(text, text, text) to authenticated;
 
--- 5) 删除函数（登录用户专用）
+-- 5) 删除函数（登录用户专用，仅创建者可删）
 create or replace function public.delete_page(p_path text)
 returns void
 language plpgsql
 security definer
 set search_path = public
 as $$
+declare
+  v_owner uuid;
 begin
   if auth.uid() is null then
     raise exception 'not authenticated';
   end if;
+
+  select owner_id into v_owner from pages where path = p_path;
+  if v_owner is null then
+    raise exception '页面不存在';
+  end if;
+  if v_owner <> auth.uid() then
+    raise exception 'permission denied: 只能删除自己创建的页面';
+  end if;
+
   delete from revisions where path = p_path;
   delete from pages where path = p_path;
 end;
