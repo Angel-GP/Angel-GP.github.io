@@ -711,12 +711,16 @@ function copyLink(){
 }
 
 /* ---------- 事件绑定 / 启动 ---------- */
+function closeNav(){ document.body.classList.remove("nav-open"); }
 function bindEvents(){
   window.addEventListener("hashchange", route);
-  $("btn-new").onclick = () => openNewPageModal();
+  window.addEventListener("hashchange", closeNav); // 点侧栏链接后自动收起菜单
+  $("btn-new").onclick = () => { closeNav(); openNewPageModal(); };
   $("btn-refresh").onclick = () => refreshTree(true, true);
   $("btn-theme").onclick = () => { state.theme = state.theme === "dark" ? "light" : "dark"; applyTheme(); };
   $("btn-menu").onclick = () => document.body.classList.toggle("nav-open");
+  $("btn-close-nav").onclick = closeNav;
+  $("nav-backdrop").onclick = closeNav;
   searchInput.addEventListener("input", () => { if (!fulltextCheck.checked) handleSearch(); });
   searchInput.addEventListener("keydown", (e) => { if (e.key === "Enter"){ e.preventDefault(); handleSearch(); } });
   fulltextCheck.addEventListener("change", () => { if (searchInput.value.trim()) handleSearch(); });

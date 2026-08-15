@@ -270,6 +270,12 @@ body{
 .toast.error{background:var(--danger);color:#fff}
 
 .menu-btn{display:none}
+.close-nav{display:none;margin-left:auto}
+.nav-backdrop{
+  position:fixed;inset:0;background:rgba(10,10,15,.5);z-index:35;
+  opacity:0;visibility:hidden;pointer-events:none;transition:opacity .25s,visibility .25s;
+}
+body.nav-open .nav-backdrop{opacity:1;visibility:visible;pointer-events:auto}
 
 /* ---------- 响应式 ---------- */
 @media (max-width:1150px){
@@ -284,6 +290,7 @@ body{
   }
   body.nav-open #sidebar{transform:none;box-shadow:0 0 60px rgba(0,0,0,.45)}
   .menu-btn{display:inline-flex}
+  .close-nav{display:inline-flex}
   .content{padding:20px 16px 70px}
   .page-header{padding:10px 12px}
 }
