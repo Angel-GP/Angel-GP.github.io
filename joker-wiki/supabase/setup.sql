@@ -65,7 +65,9 @@ begin
   on conflict (path) do update
     set content = excluded.content,
         updated_at = now(),
-        updated_by = excluded.updated_by;
+        updated_by = excluded.updated_by,
+        owner_id = coalesce(pages.owner_id, excluded.owner_id),
+        owner_name = coalesce(pages.owner_name, excluded.owner_name);
 
   insert into revisions(path, content, message, author_name)
   values (p_path, p_content, p_message, coalesce(v_email, 'unknown'));
