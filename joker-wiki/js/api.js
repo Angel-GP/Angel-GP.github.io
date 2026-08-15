@@ -33,7 +33,12 @@ const API = (() => {
     return data.session ? data.session.user : null;
   }
   async function signUp(email, password){
-    const { data, error } = await ready().auth.signUp({ email, password });
+    // 明确指定验证邮件点击后跳回的地址（避免默认 localhost）
+    const redirectTo = location.origin + location.pathname;
+    const { data, error } = await ready().auth.signUp({
+      email, password,
+      options: { emailRedirectTo: redirectTo }
+    });
     if (error) throw new Error(mapAuthError(error));
     return { user: data.user, needsConfirm: !data.session };
   }
