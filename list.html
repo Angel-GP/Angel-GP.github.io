@@ -215,8 +215,11 @@
 
   /* ---------- 忽略列表：每行一个一级文件夹名称 ---------- */
   async function loadIgnoredFolders() {
-    const res = await fetch("./.listignore", { cache: "no-store" });
-    if (res.status === 404) return new Set();
+    const res = await fetch("./list.ignore", { cache: "no-store" });
+    if (res.status === 404) {
+      console.warn("list.ignore 不存在（404），忽略规则未生效");
+      return new Set();
+    }
     if (!res.ok) throw new Error("HTTP " + res.status);
     const text = await res.text();
     return new Set(text.replace(/^\uFEFF/, "").split(/\r?\n/)
@@ -236,7 +239,7 @@
     try {
       ignoredFolders = await loadIgnoredFolders();
     } catch (e) {
-      msgEl.textContent = "无法读取 .listignore，请检查服务器配置后刷新。";
+      msgEl.textContent = "无法读取 list.ignore，请检查服务器配置后刷新。";
       msgEl.classList.add("show");
       listEl.innerHTML = "";
       return;
