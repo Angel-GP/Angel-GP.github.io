@@ -213,6 +213,18 @@
     } catch (e) { return null; }
   }
 
+  /* ---------- 忽略列表：每行一个一级文件夹名称 ---------- */
+  async function loadIgnoredFolders() {
+    const res = await fetch("./.listignore", { cache: "no-store" });
+    if (res.status === 404) return new Set();
+    if (!res.ok) throw new Error("HTTP " + res.status);
+    const text = await res.text();
+    return new Set(text.replace(/^\uFEFF/, "").split(/\r?\n/)
+      .map((line) => line.trim())
+      .filter((line) => line && !line.startsWith("#"))
+      .map((line) => line.replace(/^\.\//, "").replace(/\/$/, "")));
+  }
+
   /* ---------- 主流程 ---------- */
   async function main() {
     msgEl.classList.remove("show");
@@ -220,12 +232,22 @@
     listEl.innerHTML = '<div class="empty">正在扫描…</div>';
 
     let entries = null;
+    let ignoredFolders;
+    try {
+      ignoredFolders = await loadIgnoredFolders();
+    } catch (e) {
+      msgEl.textContent = "无法读取 .listignore，请检查服务器配置后刷新。";
+      msgEl.classList.add("show");
+      listEl.innerHTML = "";
+      return;
+    }
 
     // A: 本地服务器目录列表（本地 python -m http.server 场景）
     try {
       const dirs = await parseRoot();
       entries = await Promise.all(
         dirs
+          .filter((d) => !ignoredFolders.has(d.name))
           .sort((a, b) => a.name.localeCompare(b.name, "zh"))
           .map(async (d) => ({ name: d.name, href: d.href, idx: await probeIndex(d.href) }))
       );
@@ -233,7 +255,8 @@
       // B: Jekyll 构建时注入的文件夹列表（GitHub Pages 公网场景，实时）
       const jd = getJekyllData();
       if (jd && jd.length) {
-        entries = jd.map((f) => ({ name: f.name, href: f.name + "/", idx: f.idx }));
+        entries = jd.filter((f) => !ignoredFolders.has(f.name))
+          .map((f) => ({ name: f.name, href: f.name + "/", idx: f.idx }));
       }
     }
 
